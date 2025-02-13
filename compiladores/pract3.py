@@ -4,6 +4,7 @@ class Automata:
         self.identificador_actual = ""
         self.identificadores = []
         self.codigo_intermedio = []
+        self.bandera = False
     
     def procesar_caracter(self, caracter):
         if self.estado == 'inicio':
@@ -14,16 +15,16 @@ class Automata:
         elif self.estado == 'en_identificador':
             if caracter.isalnum() or caracter == '_':
                 self.identificador_actual += caracter
+                self.estado = 'en_identificador'
             else:
                 self.finalizar_identificador()
-                if caracter.isalpha() or caracter == '_':
-                    self.identificador_actual += caracter
-                    self.estado = 'en_identificador'
-                else:
-                    self.estado = 'inicio'
-    
+        else: 
+            self.bandera = True
+            self.estado = 'error'
+
+
     def finalizar_identificador(self):
-        if self.identificador_actual:
+        if self.identificador_actual and self.bandera == False:
             self.identificadores.append(self.identificador_actual)
             self.codigo_intermedio.append(f'IDENTIFICADOR: {self.identificador_actual}')
             self.identificador_actual = ""
@@ -31,6 +32,8 @@ class Automata:
     def procesar_entrada(self, entrada):
         for caracter in entrada:
             self.procesar_caracter(caracter)
+            if self.estado == 'error':
+                return False
         self.finalizar_identificador()  # Asegura que el último identificador se almacene
     
     def get_identificadores(self):
