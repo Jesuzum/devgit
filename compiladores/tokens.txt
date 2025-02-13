@@ -1,0 +1,9 @@
+_a int
+int x2
+2x str
+Int !x
+double x_
+int x
+int 2x
+2p2_2 double
+int james_rodriguez

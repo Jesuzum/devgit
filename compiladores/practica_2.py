@@ -6,7 +6,6 @@ class ParserTree:
         exp_init = '('
         exp_end = ')'
         operator = ['+', '-', '*', '/']
-        lista = []
 
         if self.estado == 'inicio':
             if caracter.isnumeric() or caracter == exp_init:
@@ -15,19 +14,7 @@ class ParserTree:
                     self.estado = 'valido'
                 elif caracter == exp_init:
                     print("<expr>")
-                    self.estado = 'capturando'
-        elif self.estado == 'capturando':
-            if caracter.isnumeric() or caracter in operator:
-                if caracter.isnumeric():
-                    lista.append("num")
-                    self.estado = 'capturando'
-                elif caracter in operator:
-                    lista.append("<op>")
-                    self.estado = 'capturando'
-                elif caracter == exp_end:
-                    print(lista)
                     self.estado = 'valido'
-                    lista.clear()
         elif self.estado == 'valido':
             if caracter.isnumeric() or caracter in operator:
                 if caracter.isnumeric():
@@ -36,9 +23,9 @@ class ParserTree:
                 elif caracter in operator:
                     print("<op>")
                     self.estado = 'valido'
-            elif caracter == exp_init:
-                print("<expr>")
-                self.estado = 'capturando'
+            elif caracter == exp_end:
+                print("")
+                self.estado = 'valido'
         else:
             print("Cadena no valida")
             self.estado = 'error'
@@ -51,8 +38,6 @@ class ParserTree:
                 break
         if self.estado == 'valido':
             print("Expresion valida")
-        elif self.estado == 'capturando':
-            print("Cargando lista")
         else:
             print("Expresion no valida")
 
