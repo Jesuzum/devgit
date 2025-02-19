@@ -64,7 +64,7 @@ class Automata:
 
 
 def main():
-    entrada = "variable1 _var2 anotherVar3 Var $s valid-var invalid? valid# valid% /invalid slash/var 1variable 3var 4vr v4r _"
+    entrada = "var1 var2 var_3 _var4 _ $var5 var/6 var7_ _"
     automata = Automata()
     automata.procesar_entrada(entrada)
 
