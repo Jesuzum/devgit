@@ -13,7 +13,7 @@ principal = tk.Tk()
 principal.title("Perl Compilator")
 principal.geometry("1600x920")
 principal.minsize(900, 560)
-principal.iconbitmap("compiladores/project/assets/icon.ico")
+principal.iconbitmap("assets/icon.ico")
 principal.config(bg="#5b518d")
 
 #----------------------------------------------------------------------------------------------------------------------
@@ -35,21 +35,21 @@ def crear_menu(ventana):
     return menu
 
 # Cargar iconos para los menús
-icono_nuevo = tk.PhotoImage(file="compiladores/project/assets/new.png").subsample(30, 30)
-icono_abrir = tk.PhotoImage(file="compiladores/project/assets/open.png").subsample(30, 30)
-icono_guardar = tk.PhotoImage(file="compiladores/project/assets/save.png").subsample(30, 30)
-icono_salir = tk.PhotoImage(file="compiladores/project/assets/exit.png").subsample(4, 4)
+icono_nuevo = tk.PhotoImage(file="assets/new.png").subsample(30, 30)
+icono_abrir = tk.PhotoImage(file="assets/open.png").subsample(30, 30)
+icono_guardar = tk.PhotoImage(file="assets/save.png").subsample(30, 30)
+icono_salir = tk.PhotoImage(file="assets/exit.png").subsample(4, 4)
 
-icono_deshacer = tk.PhotoImage(file="compiladores/project/assets/deshacer.png").subsample(2, 2)
-icono_rehacer = tk.PhotoImage(file="compiladores/project/assets/rehacer.png").subsample(2, 2)
-icono_copiar = tk.PhotoImage(file="compiladores/project/assets/copy.png").subsample(3, 3)
-icono_pegar = tk.PhotoImage(file="compiladores/project/assets/paste.png").subsample(4, 4)
+icono_deshacer = tk.PhotoImage(file="assets/deshacer.png").subsample(2, 2)
+icono_rehacer = tk.PhotoImage(file="assets/rehacer.png").subsample(2, 2)
+icono_copiar = tk.PhotoImage(file="assets/copy.png").subsample(3, 3)
+icono_pegar = tk.PhotoImage(file="assets/paste.png").subsample(4, 4)
 
-icono_ejecutar = tk.PhotoImage(file="compiladores/project/assets/execute.png").subsample(4, 4)
-icono_debug = tk.PhotoImage(file="compiladores/project/assets/debug.png").subsample(4, 4)
+icono_ejecutar = tk.PhotoImage(file="assets/execute.png").subsample(4, 4)
+icono_debug = tk.PhotoImage(file="assets/debug.png").subsample(4, 4)
 
-icono_doc = tk.PhotoImage(file="compiladores/project/assets/docs.png").subsample(4, 4)
-icono_acerca = tk.PhotoImage(file="compiladores/project/assets/about.png").subsample(4, 4)
+icono_doc = tk.PhotoImage(file="assets/docs.png").subsample(4, 4)
+icono_acerca = tk.PhotoImage(file="assets/about.png").subsample(4, 4)
 
 # Menús desplegables
 menu_archivo = crear_menu(principal)
@@ -96,7 +96,7 @@ contenedor_icono = tk.Frame(frame_menu, bg=menu_bg, height=30, width=150)
 contenedor_icono.pack(side="right")
 contenedor_icono.pack_propagate(False) 
 
-imagen = tk.PhotoImage(file="compiladores/project/assets/perl1.png")
+imagen = tk.PhotoImage(file="assets/perl1.png")
 imagen = imagen.subsample(30, 30)
 
 icono = tk.Label(contenedor_icono, image=imagen, bg=menu_bg)
