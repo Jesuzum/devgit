@@ -1,3 +1,4 @@
+import platform
 import tkinter as tk
 from tkinter import ttk
 from functions import (nuevo_archivo, abrir_archivo, guardar_archivo, salir,
@@ -14,6 +15,10 @@ def ui_init():
 
     #----------------------------------------------------------------------------------------------------------------------
     # Frame de la barra de menú
+    if platform.system() == "Darwin":  # macOS
+        menubar = tk.Menu(principal)
+        principal.config(menu = menubar)
+
     frame_menu = tk.Frame(principal, height=20, bg="#c2bcdf")
     frame_menu.pack(fill='x')
     frame_menu.pack_propagate(False)
@@ -82,21 +87,27 @@ def ui_init():
     menu_ayuda.add_command(label="Acerca de", image=icono_acerca, compound="left")
 
     # Botones del menú con función de despliegue
-    boton1 = tk.Button(frame_menu, text="Archivo", bg=menu_bg, borderwidth=0, activebackground=menu_active_bg,
-    command=lambda: mostrar_menu(menu_archivo, boton1))
-    boton1.pack(side='left')
+    if platform.system() == "Darwin":
+        menubar.add_cascade(label="Archivo", menu=menu_archivo)
+        menubar.add_cascade(label="Editar", menu=menu_editar)
+        menubar.add_cascade(label="Ejecutar", menu=menu_ejecutar)
+        menubar.add_cascade(label="Ayuda", menu=menu_ayuda)
+    else:
+        boton1 = tk.Button(frame_menu, text="Archivo", bg=menu_bg, borderwidth=0, activebackground=menu_active_bg,
+        command=lambda: mostrar_menu(menu_archivo, boton1))
+        boton1.pack(side='left')
 
-    boton2 = tk.Button(frame_menu, text="Editar", bg=menu_bg, borderwidth=0, activebackground=menu_active_bg,
-                        command=lambda: mostrar_menu(menu_editar, boton2))
-    boton2.pack(side='left')
+        boton2 = tk.Button(frame_menu, text="Editar", bg=menu_bg, borderwidth=0, activebackground=menu_active_bg,
+                            command=lambda: mostrar_menu(menu_editar, boton2))
+        boton2.pack(side='left')
 
-    boton3 = tk.Button(frame_menu, text="Ejecutar", bg=menu_bg, borderwidth=0, activebackground=menu_active_bg,
-                        command=lambda: mostrar_menu(menu_ejecutar, boton3))
-    boton3.pack(side='left')
+        boton3 = tk.Button(frame_menu, text="Ejecutar", bg=menu_bg, borderwidth=0, activebackground=menu_active_bg,
+                            command=lambda: mostrar_menu(menu_ejecutar, boton3))
+        boton3.pack(side='left')
 
-    boton4 = tk.Button(frame_menu, text="Ayuda", bg=menu_bg, borderwidth=0, activebackground=menu_active_bg,
-                        command=lambda: mostrar_menu(menu_ayuda, boton4))
-    boton4.pack(side='left')
+        boton4 = tk.Button(frame_menu, text="Ayuda", bg=menu_bg, borderwidth=0, activebackground=menu_active_bg,
+                            command=lambda: mostrar_menu(menu_ayuda, boton4))
+        boton4.pack(side='left')
 
     # Frame contenedor para icono y texto en el lado derecho con ancho fijo
     contenedor_icono = tk.Frame(frame_menu, bg=menu_bg, height=30, width=150)
