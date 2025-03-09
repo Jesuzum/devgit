@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
+from functions import (nuevo_archivo, abrir_archivo, guardar_archivo, salir,
+                        deshacer, rehacer, copiar, pegar)
 
 def ui_init():
     # Configuración de la ventana principal
@@ -53,19 +55,23 @@ def ui_init():
     icono_acerca = tk.PhotoImage(file="assets/about.png").subsample(4, 4)
 
     # Menús desplegables
+    # Menú Archivo
     menu_archivo = crear_menu(principal)
-    menu_archivo.add_command(label="Nuevo", image=icono_nuevo, compound="left")
-    menu_archivo.add_command(label="Abrir", image=icono_abrir, compound="left")
-    menu_archivo.add_command(label="Guardar", image=icono_guardar, compound="left")
+    menu_archivo.add_command(label="Nuevo", image=icono_nuevo, compound="left", command=lambda: nuevo_archivo(editor_texto))
+    menu_archivo.add_command(label="Abrir", image=icono_abrir, compound="left", command=lambda: abrir_archivo(editor_texto))
+    menu_archivo.add_command(label="Guardar", image=icono_guardar, compound="left", command=lambda: guardar_archivo(editor_texto))
     menu_archivo.add_separator()
-    menu_archivo.add_command(label="Salir", image=icono_salir, compound="left")
+    menu_archivo.add_command(label="Salir", image=icono_salir, compound="left", command=lambda: salir(principal))
 
+
+    # Menú Editar
     menu_editar = crear_menu(principal)
-    menu_editar.add_command(label="Deshacer", image=icono_deshacer, compound="left")
-    menu_editar.add_command(label="Rehacer", image=icono_rehacer, compound="left")
+    menu_editar.add_command(label="Deshacer", image=icono_deshacer, compound="left", command=lambda: deshacer(editor_texto))
+    menu_editar.add_command(label="Rehacer", image=icono_rehacer, compound="left", command=lambda: rehacer(editor_texto))
     menu_editar.add_separator()
-    menu_editar.add_command(label="Copiar", image=icono_copiar, compound="left")
-    menu_editar.add_command(label="Pegar", image=icono_pegar, compound="left")
+    menu_editar.add_command(label="Copiar", image=icono_copiar, compound="left", command=lambda: copiar(editor_texto))
+    menu_editar.add_command(label="Pegar", image=icono_pegar, compound="left", command=lambda: pegar(editor_texto))
+
 
     menu_ejecutar = crear_menu(principal)
     menu_ejecutar.add_command(label="Ejecutar Código", image=icono_ejecutar, compound="left")
@@ -132,7 +138,7 @@ def ui_init():
     # Editor de texto
     editor_texto = tk.Text(
         frame_editor, bg="#403853", borderwidth=0, fg="white",
-        wrap="none",
+        wrap="none", undo=True,
         yscrollcommand=scroll_y.set,
         xscrollcommand=scroll_x.set
     )
@@ -142,6 +148,20 @@ def ui_init():
     scroll_y.config(command=editor_texto.yview)
     scroll_x.config(command=editor_texto.xview)
 
+    # Cambiar el fondo del editor de texto
+    def cambiar_fondo_editor(editor_texto):
+        """Cambiar el fondo del editor de texto y la fuente."""
+        color_actual = editor_texto.cget("bg")
+        
+        if color_actual == "#403853":
+            # Cambiar a fondo oscuro y texto blanco
+            editor_texto.config(bg="#f3edff", fg="black")
+        else:
+            # Cambiar a fondo claro y texto blanco
+            editor_texto.config(bg="#403853", fg="white")
+
+    # Asignar atajo Ctrl+E para cambiar el fondo del editor de texto
+    editor_texto.bind("<Control-e>", lambda event: cambiar_fondo_editor(editor_texto))
 
     #----------------------------------------------------------------------------------------------------------------------
     # Frame de la salida
@@ -156,7 +176,7 @@ def ui_init():
     salida_texto.pack(fill="both", expand=True, padx=5, pady=5)
 
 
-
+    #----------------------------------------------------------------------------------------------------------------------
     principal.mainloop()
 
 if __name__ == "__main__": # Si se ejecuta este archivo directamente
