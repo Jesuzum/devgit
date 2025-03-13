@@ -1,9 +1,7 @@
 import platform
 import tkinter as tk
 from tkinter import ttk
-from functions import (nuevo_archivo, abrir_archivo, guardar_archivo, salir,
-                        deshacer, rehacer, copiar, pegar)
-
+from functions import *
 def ui_init():
     # Configuración de la ventana principal
     principal = tk.Tk()
@@ -66,7 +64,7 @@ def ui_init():
     menu_archivo.add_command(label="Abrir", image=icono_abrir, compound="left", command=lambda: abrir_archivo(editor_texto))
     menu_archivo.add_command(label="Guardar", image=icono_guardar, compound="left", command=lambda: guardar_archivo(editor_texto))
     menu_archivo.add_separator()
-    menu_archivo.add_command(label="Salir", image=icono_salir, compound="left", command=lambda: salir(principal))
+    menu_archivo.add_command(label="Salir", image=icono_salir, compound="left", command=lambda: salir(principal, editor_texto))
 
 
     # Menú Editar
@@ -83,8 +81,8 @@ def ui_init():
     menu_ejecutar.add_command(label="Depurar", image=icono_debug, compound="left")
 
     menu_ayuda = crear_menu(principal)
-    menu_ayuda.add_command(label="Documentación", image=icono_doc, compound="left")
-    menu_ayuda.add_command(label="Acerca de", image=icono_acerca, compound="left")
+    menu_ayuda.add_command(label="Documentación", image=icono_doc, compound="left", command=abrir_documentacion)
+    menu_ayuda.add_command(label="Acerca de", image=icono_acerca, compound="left", command=mostrar_atajos)
 
     # Botones del menú con función de despliegue
     if platform.system() == "Darwin":
@@ -171,9 +169,6 @@ def ui_init():
             # Cambiar a fondo claro y texto blanco
             editor_texto.config(bg="#403853", fg="white")
 
-    # Asignar atajo Ctrl+E para cambiar el fondo del editor de texto
-    editor_texto.bind("<Control-e>", lambda event: cambiar_fondo_editor(editor_texto))
-
     #----------------------------------------------------------------------------------------------------------------------
     # Frame de la salida
     frame_salida = tk.Frame(principal, bg="black", height=200)
@@ -186,6 +181,21 @@ def ui_init():
     salida_texto = tk.Text(frame_salida, height=10, bg="black", fg="white", wrap="word")
     salida_texto.pack(fill="both", expand=True, padx=5, pady=5)
 
+
+    #---------------------------------------------------------------------------------------------------------------------
+    # Atajos de teclado
+    # Asignar atajos de teclado
+    editor_texto.bind("<Control-e>", lambda event: cambiar_fondo_editor(editor_texto))
+    principal.bind("<Control-n>", lambda event: nuevo_archivo(editor_texto))
+    principal.bind("<Control-o>", lambda event: abrir_archivo(editor_texto))
+    principal.bind("<Control-s>", lambda event: guardar_archivo(editor_texto))
+    principal.bind("<Control-q>", lambda event: salir(principal))
+    principal.bind("<Control-z>", lambda event: editor_texto.edit_undo())
+    principal.bind("<Control-y>", lambda event: editor_texto.edit_redo())
+    principal.bind("<Control-c>", lambda event: editor_texto.event_generate("<<Copy>>"))
+    principal.bind("<Control-v>", lambda event: editor_texto.event_generate("<<Paste>>"))
+    principal.bind("<Control-f>", lambda event: buscar_texto(editor_texto))
+    principal.bind("<Control-a>", lambda event: seleccionar_todo(editor_texto))
 
     #----------------------------------------------------------------------------------------------------------------------
     principal.mainloop()
