@@ -1,88 +1,156 @@
-from pr import funciones_incorporadas, palabras_reservadas
+from pr import *
 
-class A_lexico:
+class AnalizadorLexico:
     def __init__(self):
-        self.estado = 'inicio'
-        self.funciones_incorporadas = funciones_incorporadas
-        self.palabras_reservadas = palabras_reservadas
+        self.tokens = []  # Lista de tokens reconocidos
+        self.warnings = []  # Lista de advertencias
+        self.en_funcion = False  # Estado para detectar nombres de funciones en `sub`
+        self.dentro_de_hash = False  # Estado para detectar claves dentro de un hash
+        self.ultima_palabra = ""  # Guarda el último token para saber si es una llamada a función
 
-    def transicion(self, caracter):
-        # Analiza el primer caracter para saber si es una variable, arreglo o hash
-        if self.estado == 'inicio':
-            if caracter == '$':  # comienza con $ que en perl guarda un solo valor
-                self.estado = 'variable'
-            elif caracter == '@':  # comienza con @ que en perl guarda un array
-                self.estado = 'arreglo'
-            elif caracter == '%':  # comienza con % que en perl guarda un hash
-                self.estado = 'hash'
-            else:
-                self.estado = 'error'
-        # Analiza el segundo caracter para saber si es una variable, arreglo o hash validos
-        elif self.estado == 'variable':
-            if caracter.isalpha() or caracter == '_':
-                self.estado = 'variableValida'
-            else:
-                self.estado = 'error'
-        elif self.estado == 'arreglo':
-            if caracter.isalpha() or caracter == '_':
-                self.estado = 'arregloValido'
-            else:
-                self.estado = 'error'
-        elif self.estado == 'hash':
-            if caracter.isalpha() or caracter == '_':
-                self.estado = 'hashValido'
-            else:
-                self.estado = 'error'
-        # Termina de validar la palabra
-        elif self.estado == 'variableValida' or self.estado == 'arregloValido' or self.estado == 'hashValido':
-            if caracter.isalnum() or caracter == '_':
-                # Sigue permitiendo caracteres alfanuméricos o guión bajo
-                pass
-            else:
-                self.estado = 'error'
-
-    def evaluar_cadena(self, cadena):
-        self.estado = 'inicio'
-        for caracter in cadena:
-            self.transicion(caracter)
-            if self.estado == 'error':
+    def es_variable_valida(self, token):
+        """Verifica si un token es una variable válida en Perl y genera advertencias en caso de error."""
+        if token[0] in "$@%":
+            if len(token) == 1:
+                self.warnings.append(f'WARNING: "{token}" no es un nombre de variable válido.')
                 return False
-        # Asegúrate de que el estado final sea uno de los válidos
-        if self.estado in ['variableValida', 'arregloValido', 'hashValido']:
+
+            if not (token[1].isalpha() or token[1] == "_"):
+                self.warnings.append(f'WARNING: La variable "{token}" debe comenzar con una letra o guion bajo.')
+                return False
+
+            if token[1:] in palabras_reservadas:
+                self.warnings.append(f'WARNING: La variable "{token}" no puede llamarse como una palabra reservada.')
+                return False
+
             return True
         return False
 
-    def es_funcion_o_reservada(self, palabra):
-        if palabra in self.funciones_incorporadas:
-            return "funcion incorporada"
-        elif palabra in self.palabras_reservadas:
-            return "palabra reservada"
+    def analizar(self, codigo):
+        """Analiza un fragmento de código Perl y reconoce los tokens sin expresiones regulares."""
+        palabra = ""
+        en_cadena = False
+        en_comentario = False
+
+        for i, caracter in enumerate(codigo):
+            if en_comentario:
+                if caracter == "\n":  # Fin del comentario
+                    self.tokens.append((palabra, "comentario"))
+                    palabra = ""
+                    en_comentario = False
+                else:
+                    palabra += caracter
+                continue
+
+            if en_cadena:
+                palabra += caracter
+                if caracter == en_cadena:  # Cierra la cadena
+                    self.tokens.append((palabra, "cadena"))
+                    palabra = ""
+                    en_cadena = False
+                continue
+
+            if caracter in "\"'":  # Inicia cadena
+                en_cadena = caracter
+                palabra += caracter
+                continue
+
+            if caracter == "#":  # Inicia comentario
+                en_comentario = True
+                palabra += caracter
+                continue
+
+            if caracter == "{":  # Puede ser inicio de bloque o de clave de hash
+                self.tokens.append((caracter, "delimitador"))
+                if i > 0 and codigo[i - 1] == "%":  # Si el anterior era `%`, estamos en un hash
+                    self.dentro_de_hash = True
+                continue
+
+            if caracter == "}":  # Fin de una clave dentro de un hash
+                self.tokens.append((caracter, "delimitador"))
+                self.dentro_de_hash = False
+                continue
+
+            if caracter.isspace() or caracter in "{}()[],;=+-*/<>!":
+                if palabra:
+                    self.procesar_palabra(palabra, codigo, i)
+                    palabra = ""
+
+                if caracter in "{}()[],;=+-*/<>!":
+                    self.tokens.append((caracter, "operador" if caracter in "=+-*/<>" else "delimitador"))
+
+                continue
+
+            palabra += caracter
+
+        if palabra:
+            self.procesar_palabra(palabra, codigo, len(codigo))
+
+    def procesar_palabra(self, palabra, codigo, index):
+        """Procesa una palabra y la clasifica como variable, número, palabra reservada, etc."""
+        if self.en_funcion:  # Si viene después de `sub`, es un nombre de función
+            self.tokens.append((palabra, "nombre de función"))
+            self.en_funcion = False
+            return
+
+        if self.dentro_de_hash:  # Si estamos dentro de un hash, es una clave de hash
+            self.tokens.append((palabra, "clave de hash"))
+            return
+
+        # Si la siguiente palabra es un `(`, asumimos que es una llamada a función
+        if index < len(codigo) - 1 and codigo[index] == "(":
+            self.tokens.append((palabra, "llamada a función"))
+            return
+
+        if palabra == "sub":
+            self.tokens.append((palabra, "palabra reservada"))
+            self.en_funcion = True  # La siguiente palabra debe ser un nombre de función
+        elif palabra.isdigit():
+            self.tokens.append((palabra, "número"))
+        elif palabra in palabras_reservadas:
+            self.tokens.append((palabra, "palabra reservada"))
+        elif palabra in funciones_incorporadas:
+            self.tokens.append((palabra, "función incorporada"))
+        elif self.es_variable_valida(palabra):
+            self.tokens.append((palabra, "variable"))
         else:
-            return "ninguna"
+            self.warnings.append(f'WARNING: "{palabra}" no es un token válido.')
 
-    def es_valida(self, palabra):
-        # Primero, valida la palabra con el analizador léxico
-        if not self.evaluar_cadena(palabra):
-            return False
-        
-        # Luego, verifica si la palabra es una función o palabra reservada
-        tipo_palabra = self.es_funcion_o_reservada(palabra)
-        if tipo_palabra != "ninguna":
-            return False
-        
-        # Verifica si la palabra es válida: empieza con $/@/% pero no es palabra reservada ni función
-        if palabra[0] in ['$','@','%']:
-            if palabra[1:] in self.funciones_incorporadas or palabra[1:] in self.palabras_reservadas:
-                return False
-        
-        return True
+    def mostrar_tokens(self):
+        """Muestra los tokens reconocidos y advertencias."""
+        print("\n=== TOKENS RECONOCIDOS ===")
+        for token, tipo in self.tokens:
+            print(f"{token}: {tipo}")
 
-# Probar el código
-analizador = A_lexico()
-palabras = ["$variable", "@arreglo", "%hash", "@2arreglo", "$_variable", "%_hash", "$_2variable", "%_2hash", "int", "exit", "@int", "$rand"]
+        if self.warnings:
+            print("\n=== ADVERTENCIAS ===")
+            for warning in set(self.warnings):
+                print(warning)
 
-for palabra in palabras:
-    if analizador.es_valida(palabra):
-        print(f"{palabra} es una palabra valida")
-    else:
-        print(f"{palabra} es una palabra no valida")
+
+# =======================
+#   PRUEBA DEL CÓDIGO
+# =======================
+codigo_prueba = """
+use strict;
+use warnings;
+
+my $nombre = "Carlos";
+my $salario = 50000;
+my $bono = 5000;
+
+sub calcular_salario_final {
+    my ($base, $extra) = @_;
+    return $base + $extra;
+}
+
+my $salario_final = calcular_salario_final($salario, $bono);
+
+print "Empleado: $nombre\n";
+print "Salario final: $salario_final\n";
+
+"""
+
+analizador = AnalizadorLexico()
+analizador.analizar(codigo_prueba)
+analizador.mostrar_tokens()

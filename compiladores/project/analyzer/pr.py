@@ -5,7 +5,7 @@ palabras_reservadas = [
     "caller", "AUTOLOAD", "continue", "state", "unless", "for", "foreach", 
     "if", "elsif", "else", "while", "until", "last", "next", "redo", "and", 
     "or", "xor", "not", "exit", "die", "import", "defined", "undef", "exists", 
-    "DESTROY"
+    "DESTROY", "return", "strict", "warnings", "constant", "open", "close",
 ]
 
 # Funciones incorporadas

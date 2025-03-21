@@ -51,8 +51,9 @@ def ui_init():
     icono_copiar = tk.PhotoImage(file="assets/copy.png").subsample(3, 3)
     icono_pegar = tk.PhotoImage(file="assets/paste.png").subsample(4, 4)
 
-    icono_ejecutar = tk.PhotoImage(file="assets/execute.png").subsample(4, 4)
-    icono_debug = tk.PhotoImage(file="assets/debug.png").subsample(4, 4)
+    icono_lexer = tk.PhotoImage(file="assets/lexer.png").subsample(30, 30)
+    icono_parser = tk.PhotoImage(file="assets/parser.png").subsample(30, 30)
+    icono_sintax = tk.PhotoImage(file="assets/sintax.png").subsample(30, 30)
 
     icono_doc = tk.PhotoImage(file="assets/docs.png").subsample(4, 4)
     icono_acerca = tk.PhotoImage(file="assets/about.png").subsample(4, 4)
@@ -61,7 +62,7 @@ def ui_init():
     # Menú Archivo
     menu_archivo = crear_menu(principal)
     menu_archivo.add_command(label="Nuevo", image=icono_nuevo, compound="left", command=lambda: nuevo_archivo(editor_texto))
-    menu_archivo.add_command(label="Abrir", image=icono_abrir, compound="left", command=lambda: abrir_archivo(editor_texto))
+    menu_archivo.add_command(label="Abrir", image=icono_abrir, compound="left", command=lambda: abrir_archivo(editor_texto, principal))
     menu_archivo.add_command(label="Guardar", image=icono_guardar, compound="left", command=lambda: guardar_archivo(editor_texto))
     menu_archivo.add_separator()
     menu_archivo.add_command(label="Salir", image=icono_salir, compound="left", command=lambda: salir(principal, editor_texto))
@@ -76,9 +77,11 @@ def ui_init():
     menu_editar.add_command(label="Pegar", image=icono_pegar, compound="left", command=lambda: pegar(editor_texto))
 
 
+    # Menú Ejecutar (Nuevo)
     menu_ejecutar = crear_menu(principal)
-    menu_ejecutar.add_command(label="Ejecutar Código", image=icono_ejecutar, compound="left")
-    menu_ejecutar.add_command(label="Depurar", image=icono_debug, compound="left")
+    menu_ejecutar.add_command(label="Análisis Léxico", image=icono_lexer, compound="left", command=lambda: analisis_lexico(editor_texto, salida_texto))
+    menu_ejecutar.add_command(label="Análisis Semántico", image=icono_parser, compound="left",command=lambda: analisis_sintactico(editor_texto, salida_texto))
+    menu_ejecutar.add_command(label="Análisis Sintactico", image=icono_sintax, compound="left",command=lambda: analisis_semantico(editor_texto, salida_texto))
 
     menu_ayuda = crear_menu(principal)
     menu_ayuda.add_command(label="Documentación", image=icono_doc, compound="left", command=abrir_documentacion)
@@ -170,16 +173,37 @@ def ui_init():
             editor_texto.config(bg="#403853", fg="white")
 
     #----------------------------------------------------------------------------------------------------------------------
-    # Frame de la salida
+    # Frame de la salida 
     frame_salida = tk.Frame(principal, bg="black", height=200)
     frame_salida.pack(fill="x", side="bottom")
     frame_salida.pack_propagate(False)
+
+    # Agregar un "handle" para redimensionar con el mouse
+    handle = tk.Frame(frame_salida, height=5, cursor="sb_v_double_arrow", bg="black")
+    handle.pack(fill="x", side="top")
 
     salida_label = tk.Label(frame_salida, text="Salida >>", bg="black", fg="white")
     salida_label.pack(side="left")
 
     salida_texto = tk.Text(frame_salida, height=10, bg="black", fg="white", wrap="word")
     salida_texto.pack(fill="both", expand=True, padx=5, pady=5)
+
+    # Función para redimensionar el frame de salida
+    def start_resize(event):
+        frame_salida._y = event.y_root
+
+    def resize(event):
+        dy = event.y_root - frame_salida._y
+        new_height = frame_salida.winfo_height() - dy
+        if new_height > 50:  # Evitar que se haga demasiado pequeño
+            frame_salida.config(height=new_height)
+            frame_salida._y = event.y_root
+
+    # Asociar eventos al "handle"
+    handle.bind("<ButtonPress-1>", start_resize)
+    handle.bind("<B1-Motion>", resize)
+
+
 
 
     #---------------------------------------------------------------------------------------------------------------------
