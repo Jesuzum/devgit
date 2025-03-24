@@ -1,15 +1,14 @@
-from pr import *
+from .pr import *
 
 class AnalizadorLexico:
     def __init__(self):
-        self.tokens = []  # Lista de tokens reconocidos
-        self.warnings = []  # Lista de advertencias
-        self.en_funcion = False  # Estado para detectar nombres de funciones en `sub`
-        self.dentro_de_hash = False  # Estado para detectar claves dentro de un hash
-        self.ultima_palabra = ""  # Guarda el último token para saber si es una llamada a función
+        self.tokens = []           # Lista de tokens reconocidos.
+        self.warnings = []         # Lista de advertencias.
+        self.en_funcion = False    # Estado para detectar nombres de funciones en 'sub'.
+        self.dentro_de_hash = False  # Estado para detectar claves dentro de un hash.
 
     def es_variable_valida(self, token):
-        """Verifica si un token es una variable válida en Perl y genera advertencias en caso de error."""
+        """Verifica si un token es una variable válida en Perl y genera advertencias si no lo es."""
         if token[0] in "$@%":
             if len(token) == 1:
                 self.warnings.append(f'WARNING: "{token}" no es un nombre de variable válido.')
@@ -26,8 +25,21 @@ class AnalizadorLexico:
             return True
         return False
 
+    def siguiente_no_espacio(self, codigo, index):
+        """
+        Retorna el siguiente carácter en 'codigo' a partir de 'index' que no sea un espacio.
+        De esta forma podemos ignorar los espacios intermedios al determinar si el token
+        actual debería interpretarse como una llamada a función.
+        """
+        pos = index
+        while pos < len(codigo) and codigo[pos].isspace():
+            pos += 1
+        if pos < len(codigo):
+            return codigo[pos]
+        return ''
+
     def analizar(self, codigo):
-        """Analiza un fragmento de código Perl y reconoce los tokens sin expresiones regulares."""
+        """Analiza un fragmento de código Perl y reconoce los tokens sin usar expresiones regulares."""
         palabra = ""
         en_cadena = False
         en_comentario = False
@@ -44,7 +56,7 @@ class AnalizadorLexico:
 
             if en_cadena:
                 palabra += caracter
-                if caracter == en_cadena:  # Cierra la cadena
+                if caracter == en_cadena:  # Se cierra la cadena
                     self.tokens.append((palabra, "cadena"))
                     palabra = ""
                     en_cadena = False
@@ -60,9 +72,9 @@ class AnalizadorLexico:
                 palabra += caracter
                 continue
 
-            if caracter == "{":  # Puede ser inicio de bloque o de clave de hash
+            if caracter == "{":  # Puede ser inicio de bloque o clave de hash
                 self.tokens.append((caracter, "delimitador"))
-                if i > 0 and codigo[i - 1] == "%":  # Si el anterior era `%`, estamos en un hash
+                if i > 0 and codigo[i - 1] == "%":  # Si el anterior era '%', estamos en un hash
                     self.dentro_de_hash = True
                 continue
 
@@ -75,10 +87,10 @@ class AnalizadorLexico:
                 if palabra:
                     self.procesar_palabra(palabra, codigo, i)
                     palabra = ""
-
+                # Se registra el delimitador u operador actual (si no es espacio)
                 if caracter in "{}()[],;=+-*/<>!":
-                    self.tokens.append((caracter, "operador" if caracter in "=+-*/<>" else "delimitador"))
-
+                    tipo = "operador" if caracter in "=+-*/<>" else "delimitador"
+                    self.tokens.append((caracter, tipo))
                 continue
 
             palabra += caracter
@@ -88,50 +100,59 @@ class AnalizadorLexico:
 
     def procesar_palabra(self, palabra, codigo, index):
         """Procesa una palabra y la clasifica como variable, número, palabra reservada, etc."""
-        if self.en_funcion:  # Si viene después de `sub`, es un nombre de función
+        # Si se esperaba el nombre de una función tras 'sub'
+        if self.en_funcion:
             self.tokens.append((palabra, "nombre de función"))
             self.en_funcion = False
             return
 
-        if self.dentro_de_hash:  # Si estamos dentro de un hash, es una clave de hash
+        # Si estamos dentro de un hash, se trata como clave
+        if self.dentro_de_hash:
             self.tokens.append((palabra, "clave de hash"))
             return
 
-        # Si la siguiente palabra es un `(`, asumimos que es una llamada a función
-        if index < len(codigo) - 1 and codigo[index] == "(":
-            self.tokens.append((palabra, "llamada a función"))
-            return
-
+        # Primero se comprueba si la palabra se corresponde con alguna palabra reservada o función incorporada.
         if palabra == "sub":
             self.tokens.append((palabra, "palabra reservada"))
-            self.en_funcion = True  # La siguiente palabra debe ser un nombre de función
-        elif palabra.isdigit():
-            self.tokens.append((palabra, "número"))
+            self.en_funcion = True  # La siguiente palabra debe ser el nombre de la función.
+            return
         elif palabra in palabras_reservadas:
             self.tokens.append((palabra, "palabra reservada"))
+            return
         elif palabra in funciones_incorporadas:
             self.tokens.append((palabra, "función incorporada"))
-        elif self.es_variable_valida(palabra):
-            self.tokens.append((palabra, "variable"))
+            return
+        elif palabra.isdigit():
+            self.tokens.append((palabra, "número"))
+            return
+
+        # Si no se identifica como distinguible, se decide:
+        # Si el siguiente carácter (ignorando espacios) es '(', se clasifica como llamada a función.
+        siguiente = self.siguiente_no_espacio(codigo, index)
+        if siguiente == "(":
+            self.tokens.append((palabra, "llamada a función"))
         else:
-            self.warnings.append(f'WARNING: "{palabra}" no es un token válido.')
+            if self.es_variable_valida(palabra):
+                self.tokens.append((palabra, "variable"))
+            else:
+                self.warnings.append(f'WARNING: "{palabra}" no es un token válido.')
 
     def mostrar_tokens(self):
-        """Muestra los tokens reconocidos y advertencias."""
+        """Muestra los tokens reconocidos y las advertencias."""
         print("\n=== TOKENS RECONOCIDOS ===")
         for token, tipo in self.tokens:
             print(f"{token}: {tipo}")
-
         if self.warnings:
             print("\n=== ADVERTENCIAS ===")
             for warning in set(self.warnings):
                 print(warning)
 
-
+"""
 # =======================
 #   PRUEBA DEL CÓDIGO
 # =======================
-codigo_prueba = """
+if __name__ == "__main__":
+    codigo_prueba = 
 use strict;
 use warnings;
 
@@ -149,8 +170,8 @@ my $salario_final = calcular_salario_final($salario, $bono);
 print "Empleado: $nombre\n";
 print "Salario final: $salario_final\n";
 
-"""
 
-analizador = AnalizadorLexico()
-analizador.analizar(codigo_prueba)
-analizador.mostrar_tokens()
+    analizador = AnalizadorLexico()
+    analizador.analizar(codigo_prueba)
+    analizador.mostrar_tokens()
+"""

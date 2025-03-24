@@ -15,7 +15,13 @@ funciones_incorporadas = [
     "pop", "shift", "unshift", "splice", "sort", "map", "grep", "defined", 
     "undef", "exists", "die", "exit", "eval", "require", "import", "caller", 
     "glob", "print", "say", "warn", "open", "close", "read", "write", "sysread", 
-    "syswrite", "seek", "tell", "fileno", "flush", "binmode", "getline", "tell", 
+    "syswrite", "seek", "fileno", "flush", "binmode", "getline", "tell", 
     "eof", "chomp", "chop", "each", "keys", "values", "tie", "untie", "bless", 
     "ref", "isa", "new", "SUPER", "AUTOLOAD"
 ]
+
+def es_palabra_reservada(token):
+    return token in palabras_reservadas
+
+def es_funcion_incorporada(token):
+    return token in funciones_incorporadas

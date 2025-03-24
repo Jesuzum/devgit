@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import webbrowser
+import io
+import sys
 
 # Funciones de la barra de menú
 # Funciones del boton Archivo
@@ -73,19 +75,124 @@ def pegar(editor_texto):
 
 #---------------------------------------------------------------------------------------------------------------------
 # Funciones del boton Ejecutar
-def analisis_lexico(editor_texto, salida_texto):
-    """Ejecuta el análisis léxico sobre el código en el editor (aún sin implementar)."""
-    pass
+def ejecutar_analisis(editor_texto, salida_texto):
+    """
+    Ejecuta el análisis completo del código presente en el editor:
+      1. Análisis Léxico
+      2. Análisis Sintáctico
+      3. Análisis Semántico
+    Se captura la salida de cada etapa y se muestra en el área de salida (salida_texto).
+    """
+    # Extraer y validar el código de entrada.
+    codigo = editor_texto.get("1.0", tk.END).strip()
+    salida_texto.delete("1.0", tk.END)
+    if not codigo:
+        salida_texto.insert("1.0", "No hay código para analizar.")
+        return
 
-def analisis_semantico(editor_texto, salida_texto):
-    """Ejecuta el análisis sintáctico sobre el código en el editor (aún sin implementar)."""
-    pass
+    resultados = []  # Lista para acumular todos los mensajes de salida.
 
-def analisis_sintactico(editor_texto, salida_texto):
-    """Ejecuta el análisis semántico sobre el código en el editor (aún sin implementar)."""
-    pass
+    # --- Fase Léxica ---
+    resultados.append("=== ANÁLISIS LÉXICO ===")
+    try:
+        from analyzer.lexer import AnalizadorLexico
+        analizador_lex = AnalizadorLexico()
+        analizador_lex.analizar(codigo)
+        tokens = analizador_lex.tokens
+        
+        resultados.append("Tokens reconocidos:")
+        for token, tipo in tokens:
+            resultados.append(f"{token}: {tipo}")
+        
+        if analizador_lex.warnings:
+            resultados.append("Advertencias:")
+            for warn in set(analizador_lex.warnings):
+                resultados.append(warn)
+    except Exception as e:
+        resultados.append(f"Error en el análisis léxico: {str(e)}")
+        salida_texto.insert("1.0", "\n".join(resultados))
+        return
 
+    # --- Fase Sintáctica ---
+    resultados.append("\n=== ANÁLISIS SINTÁCTICO ===")
+    try:
+        from analyzer.parser import AnalizadorSintactico
+        analizador_sintactico = AnalizadorSintactico(tokens)
+        
+        # Redirigir la salida de print para capturar los mensajes del parser.
+        old_stdout = sys.stdout
+        sys.stdout = parser_buffer = io.StringIO()
+        
+        analizador_sintactico.parse()
+        
+        sys.stdout = old_stdout  # Restaurar stdout.
+        parser_output = parser_buffer.getvalue()
+        
+        if parser_output.strip():
+            resultados.append(parser_output.strip())
+        
+        if analizador_sintactico.errors:
+            resultados.append("Errores sintácticos:")
+            for err in analizador_sintactico.errors:
+                resultados.append(err)
+        else:
+            resultados.append("Análisis sintáctico completado sin errores.")
+    except Exception as e:
+        sys.stdout = old_stdout
+        resultados.append(f"Error en el análisis sintáctico: {e}")
+        salida_texto.insert("1.0", "\n".join(resultados))
+        return
 
+    # --- Fase Semántica ---
+    resultados.append("\n=== ANÁLISIS SEMÁNTICO ===")
+    try:
+        from analyzer.semantic import AnalizadorSemantico
+        analizador_semantico = AnalizadorSemantico()
+        analizador_semantico.analizar(tokens)
+        
+        if analizador_semantico.errores:
+            resultados.append("Errores semánticos:")
+            for err in analizador_semantico.errores:
+                resultados.append(err)
+        else:
+            resultados.append("Análisis semántico completado sin errores.")
+    except Exception as e:
+        resultados.append(f"Error en el análisis semántico: {e}")
+
+    # Mostrar el resumen completo en el área de salida.
+    salida_texto.insert("1.0", "\n".join(resultados))
+
+def insertar_codigo_prueba(editor_texto, sin_errores=True):
+    """
+    Inserta un código de prueba en el editor de texto.
+    Si sin_errores es True, se inserta un código de prueba sin errores;
+    de lo contrario, se inserta un código de prueba que contiene errores.
+    """
+    if sin_errores:
+        codigo = (
+            "use strict;\n"
+            "my $a = 5;\n"
+            "sub suma {\n"
+            "  my ($x, $y) = @_;\n"
+            "  return $x + $y;\n"
+            "}\n"
+            "my $resultado = suma($a, 10);\n"
+            "print $resultado;\n"
+        )
+    else:
+        codigo = (
+            "use strict;\n"
+            "my $a = ;   # Error: falta valor\n"
+            "sub suma {\n"
+            "  my ($x, $y) = @_;\n"
+            "  return $x + $y;\n"
+            "}\n"
+            "my $resultado = sum($a, 10);  # Error: nombre de función incorrecto\n"
+            "print $resultado;\n"
+        )
+    # Limpiar el contenido previo del editor y cargar el código de prueba
+    editor_texto.delete("1.0", tk.END)
+    editor_texto.insert("1.0", codigo)
 #---------------------------------------------------------------------------------------------------------------------
 # Funciones del boton ayuda
 def abrir_documentacion():

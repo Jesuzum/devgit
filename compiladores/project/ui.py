@@ -77,12 +77,13 @@ def ui_init():
     menu_editar.add_command(label="Pegar", image=icono_pegar, compound="left", command=lambda: pegar(editor_texto))
 
 
-    # Menú Ejecutar (Nuevo)
+    # Menú Ejecutar 
     menu_ejecutar = crear_menu(principal)
-    menu_ejecutar.add_command(label="Análisis Léxico", image=icono_lexer, compound="left", command=lambda: analisis_lexico(editor_texto, salida_texto))
-    menu_ejecutar.add_command(label="Análisis Semántico", image=icono_parser, compound="left",command=lambda: analisis_sintactico(editor_texto, salida_texto))
-    menu_ejecutar.add_command(label="Análisis Sintactico", image=icono_sintax, compound="left",command=lambda: analisis_semantico(editor_texto, salida_texto))
-
+    menu_ejecutar.add_command(label="Analisis", image=icono_lexer, compound="left", command=lambda: ejecutar_analisis(editor_texto, salida_texto))
+    menu_ejecutar.add_command(label="Código Prueba Sin Errores", image=icono_lexer, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=True))
+    menu_ejecutar.add_command(label="Código Prueba Con Errores", image=icono_lexer, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=False))
+    
+    # Menú Ayuda
     menu_ayuda = crear_menu(principal)
     menu_ayuda.add_command(label="Documentación", image=icono_doc, compound="left", command=abrir_documentacion)
     menu_ayuda.add_command(label="Acerca de", image=icono_acerca, compound="left", command=mostrar_atajos)
