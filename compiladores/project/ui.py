@@ -53,7 +53,8 @@ def ui_init():
 
     icono_lexer = tk.PhotoImage(file="assets/lexer.png").subsample(30, 30)
     icono_parser = tk.PhotoImage(file="assets/parser.png").subsample(30, 30)
-    icono_sintax = tk.PhotoImage(file="assets/sintax.png").subsample(30, 30)
+    icono_semantic = tk.PhotoImage(file="assets/sintax.png").subsample(30, 30)
+    icono_limpiar = tk.PhotoImage(file="assets/clean.png").subsample(30, 30)
 
     icono_doc = tk.PhotoImage(file="assets/docs.png").subsample(4, 4)
     icono_acerca = tk.PhotoImage(file="assets/about.png").subsample(4, 4)
@@ -80,13 +81,15 @@ def ui_init():
     # Menú Ejecutar 
     menu_ejecutar = crear_menu(principal)
     menu_ejecutar.add_command(label="Analisis", image=icono_lexer, compound="left", command=lambda: ejecutar_analisis(editor_texto, salida_texto))
-    menu_ejecutar.add_command(label="Código Prueba Sin Errores", image=icono_lexer, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=True))
-    menu_ejecutar.add_command(label="Código Prueba Con Errores", image=icono_lexer, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=False))
-    
+    menu_ejecutar.add_command(label="Código Prueba Sin Errores", image=icono_parser, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=True))
+    menu_ejecutar.add_command(label="Código Prueba Con Errores", image=icono_semantic, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=False))
+    menu_ejecutar.add_separator()
+    menu_ejecutar.add_command(label="Limpiar salida", image=icono_limpiar, compound="left", command=lambda: limpiar_salida(salida_texto))
+
     # Menú Ayuda
     menu_ayuda = crear_menu(principal)
     menu_ayuda.add_command(label="Documentación", image=icono_doc, compound="left", command=abrir_documentacion)
-    menu_ayuda.add_command(label="Acerca de", image=icono_acerca, compound="left", command=mostrar_atajos)
+    menu_ayuda.add_command(label="Atajos", image=icono_acerca, compound="left", command=mostrar_atajos)
 
     # Botones del menú con función de despliegue
     if platform.system() == "Darwin":
@@ -221,7 +224,12 @@ def ui_init():
     principal.bind("<Control-v>", lambda event: editor_texto.event_generate("<<Paste>>"))
     principal.bind("<Control-f>", lambda event: buscar_texto(editor_texto))
     principal.bind("<Control-a>", lambda event: seleccionar_todo(editor_texto))
-
+    principal.bind("<Control-l>", lambda event: limpiar_salida(salida_texto))
+    principal.bind("<Control-d>", lambda event: abrir_documentacion())
+    principal.bind("<Control-h>", lambda event: mostrar_atajos())
+    principal.bind("<Control-p>", lambda event: insertar_codigo_prueba(editor_texto, sin_errores=True))
+    principal.bind("<Control-t>", lambda event: insertar_codigo_prueba(editor_texto, sin_errores=False))
+    principal.bind("<Control-r>", lambda event: ejecutar_analisis(editor_texto, salida_texto))
     #----------------------------------------------------------------------------------------------------------------------
     principal.mainloop()
 

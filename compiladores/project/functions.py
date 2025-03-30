@@ -240,6 +240,13 @@ def insertar_codigo_prueba(editor_texto, sin_errores=True):
     # Limpiar el contenido previo del editor y cargar el código de prueba
     editor_texto.delete("1.0", tk.END)
     editor_texto.insert("1.0", codigo)
+
+def limpiar_salida(salida_texto):
+    """
+    Limpia el contenido del área de salida, dejando intacto el área del editor de texto.
+    """
+    salida_texto.delete("1.0", tk.END)
+
 #---------------------------------------------------------------------------------------------------------------------
 # Funciones del boton ayuda
 def abrir_documentacion():
@@ -262,6 +269,12 @@ def mostrar_atajos():
     - Ctrl + V → Pegar
     - Ctrl + A → Seleccionar todo
     - Ctrl + E → Cambiar fondo del editor
+    - Ctrl + L → Limpiar salida
+    - Ctrl + D → Abrir documentación de Perl
+    - Ctrl + H → Mostrar atajos de teclado
+    - Ctrl + P → Ingresar codigo de prueba sin errores
+    - Ctrl + T → Ingresar codigo de prueba con errores
+    - Ctrl + R → Ejecutar análisis
     """
     messagebox.showinfo("Atajos de Teclado", atajos)
 
