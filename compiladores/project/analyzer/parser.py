@@ -1,6 +1,4 @@
-# parser.py
 from .pr import *
-from .lexer import AnalizadorLexico  # Se asume que el lexer revisado está en lexer.py
 
 class AnalizadorSintactico:
     def __init__(self, tokens):
@@ -26,7 +24,7 @@ class AnalizadorSintactico:
     def match(self, expected, tipo_esperado=None):
         """
         Consume el token actual si coincide con 'expected' (y opcionalmente con 'tipo_esperado');
-        en caso contrario, registra un error con estilo terminal.
+        en caso contrario, registra un error.
         """
         token = self.current_token()
         if token[0] == expected and (tipo_esperado is None or token[1] == tipo_esperado):
@@ -37,18 +35,13 @@ class AnalizadorSintactico:
             return None
 
     def error(self, mensaje):
-        """Registra y muestra un mensaje de error sintáctico con el formato de terminal."""
+        """Registra y muestra un mensaje de error sintáctico."""
         error_msg = f"SyntaxError: {mensaje}"
         self.errors.append(error_msg)
         print(error_msg)
-        # Opcional: Podríamos implementar una estrategia de sincronización para evitar cascadas de errores.
-        # Por ejemplo:
-        # while self.pos < len(self.tokens) and self.current_token()[0] not in (";", "}"):
-        #     self.advance()
-        # self.advance()
 
     def parse(self):
-        """Recorre toda la lista de tokens reconociendo sentencias."""
+        """Recorre la lista de tokens reconociendo sentencias."""
         print("Iniciando análisis sintáctico...")
         while self.pos < len(self.tokens) and self.current_token()[0] != "EOF":
             self.statement()
@@ -65,7 +58,8 @@ class AnalizadorSintactico:
           - Declaraciones con 'my'
           - Definiciones de funciones con 'sub'
           - Sentencias 'return'
-          - O expresiones (como asignaciones o llamadas a función)
+          - O expresiones (por ejemplo, asignaciones o llamadas a función)
+          - Construcciones condicionales: if / elsif / else
         """
         token = self.current_token()
         if token[1] == "palabra reservada":
@@ -79,6 +73,8 @@ class AnalizadorSintactico:
                 self.return_statement()
             else:
                 self.expression_statement()  # Para otras palabras reservadas.
+        elif token[1] in ("IF", "ELSIF", "ELSE"):
+            self.conditional_statement()
         else:
             self.expression_statement()
 
@@ -96,7 +92,7 @@ class AnalizadorSintactico:
     def declaration_statement(self):
         """
         Regla: my ( variable | ( lista_de_variables ) ) [= expresión] ;
-        Se permite declarar una variable o una lista, seguida opcionalmente de asignación.
+        Permite declarar una variable o una lista, con asignación opcional.
         """
         self.match("my", "palabra reservada")
         token = self.current_token()
@@ -168,21 +164,22 @@ class AnalizadorSintactico:
     def expression(self):
         """
         Expresión simplificada que procesa un término y, opcionalmente,
-        operadores (+, -, *, /) seguidos de otro término.
-        Si se encuentra un delimitador natural (')', ',' o ';') se finaliza.
+        operadores (+, -, *, /, >, <) seguidos de otro término.
+        Finaliza si se encuentra un delimitador natural (')', ',' o ';').
         """
         if self.pos < len(self.tokens) and self.current_token()[0] in (")", ",", ";"):
             return
         self.term()
-        while self.pos < len(self.tokens) and self.current_token()[0] in ("+", "-", "*", "/"):
+        while self.pos < len(self.tokens) and self.current_token()[0] in ("+", "-", "*", "/", ">", "<"):
             self.advance()
             self.term()
 
+
     def term(self):
         """
-        Procesa un término, que puede ser:
+        Procesa un término que puede ser:
           - una variable, número o cadena,
-          - una llamada a función (ya clasificada como 'función incorporada' o 'llamada a función'),
+          - una llamada a función (clasificada como 'función incorporada' o 'llamada a función'),
           - o una expresión entre paréntesis.
         """
         token = self.current_token()
@@ -204,8 +201,8 @@ class AnalizadorSintactico:
 
     def parse_function_call(self, nombre_funcion):
         """
-        Procesa una llamada a función con o sin paréntesis.
-        Ejemplo: print "texto";  o  print("texto");
+        Procesa una llamada a función, con o sin paréntesis.
+        Por ejemplo: print "texto";  o  print("texto");
         """
         if self.pos < len(self.tokens) and self.current_token()[0] == "(":
             self.match("(", "delimitador")
@@ -217,13 +214,42 @@ class AnalizadorSintactico:
                 self.expression()
 
     def arguments(self):
-        """
-        Procesa la lista de argumentos: expresión ( , expresión )*
-        """
+        """Procesa la lista de argumentos: expresión ( , expresión )*."""
         self.expression()
         while self.pos < len(self.tokens) and self.current_token()[0] == ",":
             self.match(",", "delimitador")
             self.expression()
+
+    def conditional_statement(self):
+        """
+        Procesa la estructura condicional:
+          if (condición) { bloque }
+          [elsif (condición) { bloque }]* 
+          [else { bloque }]
+        """
+        # Procesar el 'if'
+        self.match("if", "IF")
+        self.match("(", "delimitador")
+        self.expression()
+        self.match(")", "delimitador")
+        self.block()
+        print("Sentencia 'if' analizada.")
+
+        # Procesar cero o más 'elsif'
+        while self.pos < len(self.tokens) and self.current_token()[1] == "ELSIF":
+            self.match("elsif", "ELSIF")
+            self.match("(", "delimitador")
+            self.expression()
+            self.match(")", "delimitador")
+            self.block()
+            print("Sentencia 'elsif' analizada.")
+
+        # Procesar el 'else', si existe
+        if self.pos < len(self.tokens) and self.current_token()[1] == "ELSE":
+            self.match("else", "ELSE")
+            self.block()
+            print("Sentencia 'else' analizada.")
+
 
     def show_errors(self):
         """Muestra los errores sintácticos encontrados."""

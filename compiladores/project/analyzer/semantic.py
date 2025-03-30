@@ -9,7 +9,7 @@ class AnalizadorSemantico:
         # Lista de errores semánticos encontrados.
         self.errores = []
 
-    # --- Manejo de ámbitos ---
+    # --- Manejo de Ámbitos ---
     def push_scope(self):
         self.scope_stack.append({})
 
@@ -20,6 +20,7 @@ class AnalizadorSemantico:
         else:
             self.errores.append("Error interno: no se puede desapilar el ámbito global.")
 
+    # --- Gestión de Variables ---
     def agregar_variable(self, nombre, tipo):
         """Agrega la variable al ámbito actual; si ya existe, registra un error."""
         current_scope = self.scope_stack[-1]
@@ -29,7 +30,7 @@ class AnalizadorSemantico:
             current_scope[nombre] = tipo
 
     def buscar_variable(self, nombre):
-        """Busca la variable en la pila de ámbitos (desde lo local a lo global)."""
+        """Busca la variable en la pila de ámbitos (de lo local a lo global)."""
         for scope in reversed(self.scope_stack):
             if nombre in scope:
                 return True
@@ -40,13 +41,14 @@ class AnalizadorSemantico:
         if not self.buscar_variable(nombre):
             self.errores.append(f"Error: la variable '{nombre}' no está declarada.")
 
+    # --- Gestión de Funciones ---
     def agregar_funcion(self, nombre, parametros):
         """Registra la función globalmente; si ya existe, registra un error."""
         if nombre in self.funciones:
             self.errores.append(f"Error: la función '{nombre}' ya está declarada.")
         else:
             self.funciones[nombre] = parametros
-            # NOTA: No agregamos los parámetros al ámbito global.
+            # Nota: Los parámetros se manejan en el ámbito local de la función.
 
     def validar_llamada_funcion(self, nombre, argumentos):
         """Valida que la función esté declarada y que el número de argumentos concuerde con los parámetros."""
@@ -62,20 +64,20 @@ class AnalizadorSemantico:
     # --- Análisis Semántico ---
     def analizar(self, tokens):
         """
-        Recorre la lista de tokens (tuplas de (valor, tipo)) y realiza validaciones semánticas:
+        Recorre la lista de tokens y realiza las validaciones semánticas:
           - Declaración y uso de variables.
-          - Definición de funciones y extracción de parámetros.
+          - Definición de funciones (y extracción de parámetros).
           - Llamadas a funciones.
+          - Estructuras condicionales (if / elsif / else).
         """
         i = 0
         n = len(tokens)
         while i < n:
             valor, tipo = tokens[i]
-            # Declaración de variable: "my"
             if valor == "my" and tipo == "palabra reservada":
+                # Declaración de variable o lista.
                 if i + 1 < n:
                     next_valor, next_tipo = tokens[i+1]
-                    # Caso: declaración de lista, e.g. my ( $a, $b, ... )
                     if next_valor == "(" and next_tipo == "delimitador":
                         i += 2  # Saltar "my" y "("
                         vars_lista = []
@@ -86,7 +88,6 @@ class AnalizadorSemantico:
                         i += 1  # Saltar ")"
                         for var in vars_lista:
                             self.agregar_variable(var, "desconocido")
-                    # Caso: declaración individual
                     elif next_tipo == "variable":
                         self.agregar_variable(next_valor, "desconocido")
                         i += 2
@@ -98,19 +99,15 @@ class AnalizadorSemantico:
                     self.errores.append("Error semántico: se esperaba un nombre de variable después de 'my'.")
                     i += 1
                     continue
+                print("Análisis semántico: Declaración analizada.")
 
-            # Uso de variable: cualquier token de tipo "variable" se verifica en la pila de ámbitos
-            elif tipo == "variable":
-                self.validar_variable(valor)
-                i += 1
-
-            # Definición de función: "sub" seguido de nombre y bloque
             elif valor == "sub" and tipo == "palabra reservada":
+                # Definición de función.
                 if i + 1 < n:
                     func_valor, func_tipo = tokens[i+1]
                     if func_tipo == "nombre de función":
                         nombre_funcion = func_valor
-                        i += 2  # Saltar "sub" y el nombre de la función
+                        i += 2  # Saltar "sub" y el nombre de la función.
                     else:
                         self.errores.append("Error semántico: se esperaba el nombre de la función después de 'sub'.")
                         i += 1
@@ -120,38 +117,12 @@ class AnalizadorSemantico:
                     i += 1
                     continue
 
-                # Se espera el bloque de la función delimitado por '{' y '}'
+                # Se espera el bloque de la función: { ... }
                 parametros = []
                 if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
                     i += 1  # Saltar '{'
-                    self.push_scope()  # Nuevo ámbito local para la función
-                    # Búsqueda de posibles parámetros declarados con el patrón:
-                    # my ( $param1, $param2, ... ) = @_;
-                    while i < n and not (tokens[i][0] == "}" and tokens[i][1] == "delimitador"):
-                        curr_val, curr_tipo = tokens[i]
-                        if curr_val == "my" and curr_tipo == "palabra reservada":
-                            if i + 1 < n:
-                                nxt_val, nxt_tipo = tokens[i+1]
-                                if nxt_val == "(" and nxt_tipo == "delimitador":
-                                    i += 2  # Saltar "my" y "("
-                                    while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
-                                        if tokens[i][1] == "variable":
-                                            param = tokens[i][0]
-                                            self.agregar_variable(param, "desconocido")  # Solo en el ámbito local
-                                            parametros.append(param)
-                                        i += 1
-                                    i += 1  # Saltar ')'
-                                    # Omitir el posible segmento de asignación (por ejemplo, "= @_;") hasta el ';'
-                                    while i < n and tokens[i][0] != ";":
-                                        i += 1
-                                    if i < n and tokens[i][0] == ";":
-                                        i += 1
-                                else:
-                                    i += 1
-                            else:
-                                i += 1
-                        else:
-                            i += 1
+                    self.push_scope()  # Nuevo ámbito local
+                    parametros, i = self._extraer_parametros(tokens, i)
                     if i < n and tokens[i][0] == "}" and tokens[i][1] == "delimitador":
                         i += 1  # Saltar '}'
                     else:
@@ -163,29 +134,163 @@ class AnalizadorSemantico:
                     continue
 
                 self.agregar_funcion(nombre_funcion, parametros)
+                print("Análisis semántico: Definición de función analizada.")
 
-            # Llamada a función: identificada si el token está clasificado como "llamada a función"
-            # o si el siguiente token es "(".
+            # Primero procesamos estructuras condicionales antes que llamadas a función.
+            elif valor == "if" and tipo == "IF":
+                # Procesa la estructura condicional (if/elsif/else)
+                i = self._analizar_condicional(tokens, i)
+                # Los mensajes correspondientes se muestran dentro de _analizar_condicional.
+            elif valor in ("elsif", "else") and tipo in ("ELSIF", "ELSE"):
+                self.errores.append("Error semántico: 'elsif' o 'else' sin que preceda un 'if'.")
+                i += 1
+
+            # Luego, procesamos llamadas a función.
             elif (tipo == "llamada a función") or (i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador"):
                 nombre_funcion = valor
                 argumentos = []
                 if i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador":
-                    i += 2  # Saltamos el nombre y el token '('
+                    i += 2  # Saltar el nombre y el '('.
                     while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
-                        if tokens[i][1] == "variable":
+                        if tokens[i][1] in ("variable", "número", "cadena"):
                             argumentos.append(tokens[i][0])
                         i += 1
                     if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
                         i += 1  # Saltar ')'
                 else:
                     i += 1
-                    if i < n and tokens[i][1] == "variable":
+                    if i < n and tokens[i][1] in ("variable", "número", "cadena"):
                         argumentos.append(tokens[i][0])
                         i += 1
                 self.validar_llamada_funcion(nombre_funcion, argumentos)
+                print("Análisis semántico: Llamada a función analizada.")
+
+            elif tipo == "variable":
+                # Uso de variable.
+                self.validar_variable(valor)
+                i += 1
+                print("Análisis semántico: Uso de variable analizada.")
 
             else:
                 i += 1
+
+        if not self.errores:
+            print("Análisis semántico completado sin errores.")
+        else:
+            print("Análisis semántico completado con errores.")
+
+    def _extraer_parametros(self, tokens, i):
+        """
+        Extrae parámetros en el patrón: my ( $param1, $param2, ... ) = @_; 
+        Retorna una tupla (lista_de_parametros, nuevo_indice).
+        Se espera que se haya consumido ya el token '{' de apertura.
+        """
+        parametros = []
+        n = len(tokens)
+        while i < n:
+            if tokens[i][0] == "}" and tokens[i][1] == "delimitador":
+                break
+            # Se busca el patrón "my ( ... )"
+            if tokens[i][0] == "my" and tokens[i][1] == "palabra reservada":
+                if i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador":
+                    i += 2  # Saltar los tokens "my" y "("
+                    while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
+                        if tokens[i][1] == "variable":
+                            param = tokens[i][0]
+                            self.agregar_variable(param, "desconocido")  # Se agrega solo al ámbito local.
+                            parametros.append(param)
+                        i += 1
+                    i += 1  # Saltar el token ')'
+                    # Saltar tokens hasta llegar a ';'
+                    while i < n and tokens[i][0] != ";":
+                        i += 1
+                    if i < n and tokens[i][0] == ";":
+                        i += 1
+                    continue
+            i += 1
+        return (parametros, i)
+
+    def _skip_block(self, tokens, i):
+        """
+        Avanza el índice 'i' hasta después del bloque delimitado por '{' y '}'.
+        Utiliza un contador de niveles de anidamiento.
+        """
+        depth = 0
+        n = len(tokens)
+        while i < n:
+            if tokens[i][0] == "{" and tokens[i][1] == "delimitador":
+                depth += 1
+            elif tokens[i][0] == "}" and tokens[i][1] == "delimitador":
+                depth -= 1
+                if depth == 0:
+                    return i + 1
+            i += 1
+        self.errores.append("Error semántico: bloque no cerrado correctamente.")
+        return i
+
+    def _analizar_condicional(self, tokens, i):
+        """
+        Procesa la estructura condicional:
+          if (condición) { bloque }
+          [elsif (condición) { bloque }]* 
+          [else { bloque }]
+        Retorna el nuevo índice después del condicional.
+        Durante la condición se valida el uso de variables.
+        """
+        n = len(tokens)
+        # Se espera que tokens[i] sea "if" de tipo IF.
+        i += 1  # Saltar "if"
+        # Validar que siga '('
+        if i < n and tokens[i][0] == "(" and tokens[i][1] == "delimitador":
+            i += 1
+            # Procesar la condición: validar variables dentro.
+            while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
+                if tokens[i][1] == "variable":
+                    self.validar_variable(tokens[i][0])
+                i += 1
+            if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
+                i += 1  # Saltar ')'
+            else:
+                self.errores.append("Error semántico: se esperaba ')' en la condición del if.")
+        else:
+            self.errores.append("Error semántico: se esperaba '(' después de 'if'.")
+        # Procesar el bloque del if.
+        if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
+            i = self._skip_block(tokens, i)
+        else:
+            self.errores.append("Error semántico: se esperaba bloque '{' tras el if.")
+        print("Análisis semántico: Sentencia 'if' analizada.")
+
+        # Procesar cero o más 'elsif'
+        while i < n and tokens[i][1] == "ELSIF":
+            i += 1  # Saltar 'elsif'
+            if i < n and tokens[i][0] == "(" and tokens[i][1] == "delimitador":
+                i += 1
+                while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
+                    if tokens[i][1] == "variable":
+                        self.validar_variable(tokens[i][0])
+                    i += 1
+                if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
+                    i += 1
+                else:
+                    self.errores.append("Error semántico: se esperaba ')' en la condición del elsif.")
+            else:
+                self.errores.append("Error semántico: se esperaba '(' después de 'elsif'.")
+            if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
+                i = self._skip_block(tokens, i)
+            else:
+                self.errores.append("Error semántico: se esperaba bloque '{' tras el elsif.")
+            print("Análisis semántico: Sentencia 'elsif' analizada.")
+
+        # Procesar opcional 'else'
+        if i < n and tokens[i][1] == "ELSE":
+            i += 1  # Saltar 'else'
+            if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
+                i = self._skip_block(tokens, i)
+            else:
+                self.errores.append("Error semántico: se esperaba bloque '{' tras el else.")
+            print("Análisis semántico: Sentencia 'else' analizada.")
+        return i
 
     def mostrar_errores(self):
         if self.errores:

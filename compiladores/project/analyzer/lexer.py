@@ -111,7 +111,18 @@ class AnalizadorLexico:
             self.tokens.append((palabra, "clave de hash"))
             return
 
-        # Primero se comprueba si la palabra se corresponde con alguna palabra reservada o función incorporada.
+        # Reconocimiento especial para sentencias condicionales
+        if palabra == "if":
+            self.tokens.append((palabra, "IF"))
+            return
+        elif palabra == "elsif":
+            self.tokens.append((palabra, "ELSIF"))
+            return
+        elif palabra == "else":
+            self.tokens.append((palabra, "ELSE"))
+            return
+
+        # Reconocimiento de palabras reservadas y funciones incorporadas.
         if palabra == "sub":
             self.tokens.append((palabra, "palabra reservada"))
             self.en_funcion = True  # La siguiente palabra debe ser el nombre de la función.
@@ -126,8 +137,7 @@ class AnalizadorLexico:
             self.tokens.append((palabra, "número"))
             return
 
-        # Si no se identifica como distinguible, se decide:
-        # Si el siguiente carácter (ignorando espacios) es '(', se clasifica como llamada a función.
+        # Determinación final: si el siguiente carácter es '(', se clasifica como llamada a función.
         siguiente = self.siguiente_no_espacio(codigo, index)
         if siguiente == "(":
             self.tokens.append((palabra, "llamada a función"))
@@ -146,32 +156,3 @@ class AnalizadorLexico:
             print("\n=== ADVERTENCIAS ===")
             for warning in set(self.warnings):
                 print(warning)
-
-"""
-# =======================
-#   PRUEBA DEL CÓDIGO
-# =======================
-if __name__ == "__main__":
-    codigo_prueba = 
-use strict;
-use warnings;
-
-my $nombre = "Carlos";
-my $salario = 50000;
-my $bono = 5000;
-
-sub calcular_salario_final {
-    my ($base, $extra) = @_;
-    return $base + $extra;
-}
-
-my $salario_final = calcular_salario_final($salario, $bono);
-
-print "Empleado: $nombre\n";
-print "Salario final: $salario_final\n";
-
-
-    analizador = AnalizadorLexico()
-    analizador.analizar(codigo_prueba)
-    analizador.mostrar_tokens()
-"""

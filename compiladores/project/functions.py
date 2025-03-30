@@ -83,6 +83,9 @@ def ejecutar_analisis(editor_texto, salida_texto):
       3. Análisis Semántico
     Se captura la salida de cada etapa y se muestra en el área de salida (salida_texto).
     """
+    import sys, io
+    import tkinter as tk  # Asegurarse de tener tk importado o adaptarlo según tu entorno
+    
     # Extraer y validar el código de entrada.
     codigo = editor_texto.get("1.0", tk.END).strip()
     salida_texto.delete("1.0", tk.END)
@@ -148,7 +151,18 @@ def ejecutar_analisis(editor_texto, salida_texto):
     try:
         from analyzer.semantic import AnalizadorSemantico
         analizador_semantico = AnalizadorSemantico()
+        
+        # Redirigir la salida para capturar mensajes del análisis semántico.
+        old_stdout = sys.stdout
+        sys.stdout = semantic_buffer = io.StringIO()
+        
         analizador_semantico.analizar(tokens)
+        
+        sys.stdout = old_stdout  # Restaurar stdout.
+        semantic_output = semantic_buffer.getvalue()
+        
+        if semantic_output.strip():
+            resultados.append(semantic_output.strip())
         
         if analizador_semantico.errores:
             resultados.append("Errores semánticos:")
@@ -162,6 +176,7 @@ def ejecutar_analisis(editor_texto, salida_texto):
     # Mostrar el resumen completo en el área de salida.
     salida_texto.insert("1.0", "\n".join(resultados))
 
+
 def insertar_codigo_prueba(editor_texto, sin_errores=True):
     """
     Inserta un código de prueba en el editor de texto.
@@ -171,25 +186,57 @@ def insertar_codigo_prueba(editor_texto, sin_errores=True):
     if sin_errores:
         codigo = (
             "use strict;\n"
-            "my $a = 5;\n"
-            "sub suma {\n"
-            "  my ($x, $y) = @_;\n"
-            "  return $x + $y;\n"
-            "}\n"
-            "my $resultado = suma($a, 10);\n"
-            "print $resultado;\n"
+            "use warnings;\n\n"
+            "my $nombre = \"Carlos\";\n"
+            "my $salario = 50000;\n"
+            "my $bono = 5000;\n\n"
+            "sub calcular_salario_final {\n"
+            "    my ($base, $extra) = @_;\n"
+            "    return $base + $extra;\n"
+            "}\n\n"
+            "my $salario_final = calcular_salario_final($salario, $bono);\n\n"
+            "if ($salario_final > 60000) {\n"
+            "    print \"Salario alto\\n\";\n"
+            "} elsif ($salario_final > 55000) {\n"
+            "    print \"Salario medio\\n\";\n"
+            "} elsif ($salario_final < 50000) {\n"
+            "    print \"Salario bajo\\n\";\n"
+            "} else {\n"
+            "    print \"Salario bajo\\n\";\n"
+            "}\n\n"
+            "print \"Empleado: $nombre\\n\";\n"
+            "print \"Salario final: $salario_final\\n\";\n"
         )
     else:
         codigo = (
             "use strict;\n"
-            "my $a = ;   # Error: falta valor\n"
-            "sub suma {\n"
-            "  my ($x, $y) = @_;\n"
-            "  return $x + $y;\n"
-            "}\n"
-            "my $resultado = sum($a, 10);  # Error: nombre de función incorrecto\n"
-            "print $resultado;\n"
+            "use warnings;\n\n"
+            "# Declaración correcta de la variable\n"
+            "my $nombre = \"Carlos\";\n\n"
+            "# ERROR: Redeclaración de la misma variable en el mismo ámbito.\n"
+            "my $nombre = \"Pedro\";\n\n"
+            "# Declaración de una función que espera 2 argumentos.\n"
+            "sub calcular_salario_final {\n"
+            "    my ($base, $extra) = @_;\n"
+            "    return $base + $extra;\n"
+            "}\n\n"
+            "# ERROR: Llamada a función con un solo argumento en lugar de 2.\n"
+            "my $salario_final = calcular_salario_final(50000);\n\n"
+            "if ($salario_final > 60000) {\n"
+            "    print \"Salario alto\\n\";\n"
+            "} elsif ($salario_final > 55000) {\n"
+            "    print \"Salario medio\\n\";\n"
+            "} else {\n"
+            "    print \"Salario bajo\\n\";\n"
+            "}\n\n"
+            "print \"Empleado: $nombre\\n\";\n"
+            "# ERROR: Uso de variable $bono no declarada.\n"
+            "print \"Salario final: $salario_final y bono: $bono\\n\";\n"
         )
+    
+    editor_texto.delete("1.0", "end")
+    editor_texto.insert("1.0", codigo)
+
     # Limpiar el contenido previo del editor y cargar el código de prueba
     editor_texto.delete("1.0", tk.END)
     editor_texto.insert("1.0", codigo)
