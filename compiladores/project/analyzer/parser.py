@@ -75,8 +75,11 @@ class AnalizadorSintactico:
                 self.expression_statement()  # Para otras palabras reservadas.
         elif token[1] in ("IF", "ELSIF", "ELSE"):
             self.conditional_statement()
+        elif token[1] == "SWITCH":
+            self.switch_statement()
         else:
             self.expression_statement()
+
 
     def use_statement(self):
         # Regla: use <módulo> ;
@@ -249,7 +252,62 @@ class AnalizadorSintactico:
             self.match("else", "ELSE")
             self.block()
             print("Sentencia 'else' analizada.")
+    def switch_statement(self):
+        """
+        Procesa la estructura switch:
+        switch ( expresión ) {
+            case expresión : { bloque }
+            [ case expresión : { bloque } ]*
+            [ default : { bloque } ]
+        }
+        """
+        # Procesar 'switch'
+        self.match("switch", "SWITCH")
+        self.match("(", "delimitador")
+        self.expression()
+        self.match(")", "delimitador")
+        self.match("{", "delimitador")
+        
+        # Procesar los casos 'case'
+        while self.pos < len(self.tokens) and self.current_token()[0] == "case" and self.current_token()[1] == "CASE":
+            self.case_clause()
+        
+        # Procesar la cláusula opcional 'default'
+        if self.pos < len(self.tokens) and self.current_token()[0] == "default" and self.current_token()[1] == "DEFAULT":
+            self.default_clause()
+        
+        self.match("}", "delimitador")
+        print("Sentencia 'switch' analizada.")
 
+    def case_clause(self):
+        """
+        Procesa una cláusula 'case':
+        case expresión : { bloque }
+        """
+        self.match("case", "CASE")
+        self.expression()
+        # Se espera el delimitador ':'; asumiendo que el lexer lo genera como token delimitador ":".
+        self.match(":", "delimitador")
+        self.match("{", "delimitador")
+        # Procesa las sentencias dentro del bloque del case.
+        while self.pos < len(self.tokens) and self.current_token()[0] != "}":
+            self.statement()
+        self.match("}", "delimitador")
+        print("Sentencia 'case' analizada.")
+
+    def default_clause(self):
+        """
+        Procesa la cláusula 'default':
+        default : { bloque }
+        """
+        self.match("default", "DEFAULT")
+        self.match(":", "delimitador")
+        self.match("{", "delimitador")
+        # Procesa las sentencias dentro del bloque por defecto.
+        while self.pos < len(self.tokens) and self.current_token()[0] != "}":
+            self.statement()
+        self.match("}", "delimitador")
+        print("Sentencia 'default' analizada.")
 
     def show_errors(self):
         """Muestra los errores sintácticos encontrados."""

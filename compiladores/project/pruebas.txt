@@ -1,0 +1,45 @@
+Case con errores:
+use strict;
+use warnings;
+
+# Declaramos una variable para comparar.
+my $color = "rojo";
+
+# Estructura switch con errores:
+switch($color) {
+    case "rojo" {      # Error: Falta ':' después de "rojo"
+         print "Color es rojo\n";
+    }
+    case "verde":      # Error: Se esperaba un bloque encerrado en llaves tras ':'
+         print "Color es verde\n";   # No se delimita con '{' y '}', debería ser: { ... }
+    default {          # Error: Falta ':' después de "default"
+         print "Color no reconocido\n";
+    }
+# Falta la llave '}' que cierra la estructura switch
+
+print "Fin del switch\n";
+
+Case sin errores:
+use strict;
+use warnings;
+
+# Declaramos una variable para comparar.
+my $color = "verde";
+
+# Estructura switch:
+switch($color) {
+    case "rojo": {
+         print "Color: rojo\n";
+    }
+    case "verde": {
+         print "Color: verde\n";
+    }
+    case "azul": {
+         print "Color: azul\n";
+    }
+    default: {
+         print "Color no reconocido\n";
+    }
+}
+
+print "Fin del switch\n";

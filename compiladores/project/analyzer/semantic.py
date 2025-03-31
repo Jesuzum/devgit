@@ -144,6 +144,9 @@ class AnalizadorSemantico:
             elif valor in ("elsif", "else") and tipo in ("ELSIF", "ELSE"):
                 self.errores.append("Error semántico: 'elsif' o 'else' sin que preceda un 'if'.")
                 i += 1
+            # Despues procesamos la sentencia switch.
+            elif valor == "switch" and tipo == "SWITCH":
+                i = self._analizar_switch(tokens, i)
 
             # Luego, procesamos llamadas a función.
             elif (tipo == "llamada a función") or (i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador"):
@@ -290,6 +293,110 @@ class AnalizadorSemantico:
             else:
                 self.errores.append("Error semántico: se esperaba bloque '{' tras el else.")
             print("Análisis semántico: Sentencia 'else' analizada.")
+        return i
+
+    def _analizar_switch(self, tokens, i):
+        """
+        Procesa la estructura switch:
+        switch ( expresión ) {
+            { case_clause }*
+            [ default_clause ]
+        }
+        Retorna el nuevo índice después del switch.
+        Durante la evaluación se validan las variables en la expresión y en cada caso.
+        """
+        n = len(tokens)
+        # Se asume que tokens[i] es "switch" de tipo SWITCH.
+        i += 1  # Saltar "switch"
+        
+        # Validar la expresión entre paréntesis.
+        if i < n and tokens[i][0] == "(" and tokens[i][1] == "delimitador":
+            i += 1
+            # Procesar la expresión del switch; por cada token variable se valida.
+            while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
+                if tokens[i][1] == "variable":
+                    self.validar_variable(tokens[i][0])
+                i += 1
+            if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
+                i += 1  # Saltar ')'
+            else:
+                self.errores.append("Error semántico: se esperaba ')' en la expresión del switch.")
+        else:
+            self.errores.append("Error semántico: se esperaba '(' después de 'switch'.")
+        
+        # Se espera el bloque de apertura '{'
+        if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
+            i += 1  # Saltar '{'
+        else:
+            self.errores.append("Error semántico: se esperaba '{' tras la expresión switch.")
+        
+        # Procesar cero o más cláusulas case.
+        while i < n and tokens[i][0] == "case" and tokens[i][1] == "CASE":
+            i = self._analizar_case_clause(tokens, i)
+        
+        # Procesar opcional cláusula default.
+        if i < n and tokens[i][0] == "default" and tokens[i][1] == "DEFAULT":
+            i = self._analizar_default_clause(tokens, i)
+        
+        # Se espera la llave de cierre '}'.
+        if i < n and tokens[i][0] == "}" and tokens[i][1] == "delimitador":
+            i += 1
+        else:
+            self.errores.append("Error semántico: se esperaba '}' para cerrar el switch.")
+        
+        print("Análisis semántico: Sentencia 'switch' analizada.")
+        return i
+    
+    def _analizar_case_clause(self, tokens, i):
+        """
+        Procesa una cláusula case:
+        case expresión : { bloque }
+        Retorna el nuevo índice después del case.
+        """
+        n = len(tokens)
+        # Se asume que tokens[i] es "case" de tipo CASE.
+        i += 1  # Saltar "case"
+        
+        # Procesar la expresión del case.
+        while i < n and not (tokens[i][0] == ":" and tokens[i][1] == "delimitador"):
+            if tokens[i][1] == "variable":
+                self.validar_variable(tokens[i][0])
+            i += 1
+        if i < n and tokens[i][0] == ":" and tokens[i][1] == "delimitador":
+            i += 1  # Saltar ':'
+        else:
+            self.errores.append("Error semántico: se esperaba ':' tras la expresión del case.")
+        
+        # Se espera el bloque que inicia con '{'
+        if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
+            i = self._skip_block(tokens, i)
+        else:
+            self.errores.append("Error semántico: se esperaba bloque '{' en el case.")
+        
+        print("Análisis semántico: Sentencia 'case' analizada.")
+        return i
+    
+    def _analizar_default_clause(self, tokens, i):
+        """
+        Procesa la cláusula default:
+        default : { bloque }
+        Retorna el nuevo índice después de default.
+        """
+        n = len(tokens)
+        # Se asume que tokens[i] es "default" de tipo DEFAULT.
+        i += 1  # Saltar "default"
+        
+        if i < n and tokens[i][0] == ":" and tokens[i][1] == "delimitador":
+            i += 1  # Saltar ':'
+        else:
+            self.errores.append("Error semántico: se esperaba ':' tras 'default'.")
+        
+        if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
+            i = self._skip_block(tokens, i)
+        else:
+            self.errores.append("Error semántico: se esperaba bloque '{' tras 'default'.")
+        
+        print("Análisis semántico: Sentencia 'default' analizada.")
         return i
 
     def mostrar_errores(self):

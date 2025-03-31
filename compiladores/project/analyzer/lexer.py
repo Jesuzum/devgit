@@ -83,12 +83,12 @@ class AnalizadorLexico:
                 self.dentro_de_hash = False
                 continue
 
-            if caracter.isspace() or caracter in "{}()[],;=+-*/<>!":
+            if caracter.isspace() or caracter in "{}()[],:;=+-*/<>!":
                 if palabra:
                     self.procesar_palabra(palabra, codigo, i)
                     palabra = ""
                 # Se registra el delimitador u operador actual (si no es espacio)
-                if caracter in "{}()[],;=+-*/<>!":
+                if caracter in "{}()[],:;=+-*/<>!":
                     tipo = "operador" if caracter in "=+-*/<>" else "delimitador"
                     self.tokens.append((caracter, tipo))
                 continue
@@ -112,6 +112,18 @@ class AnalizadorLexico:
             return
 
         # Reconocimiento especial para sentencias condicionales
+        # Agregamos reconocimiento para switch, case y default.
+        if palabra == "switch":
+            self.tokens.append((palabra, "SWITCH"))
+            return
+        elif palabra == "case":
+            self.tokens.append((palabra, "CASE"))
+            return
+        elif palabra == "default":
+            self.tokens.append((palabra, "DEFAULT"))
+            return
+        
+        #Sentencia if, elsif y else
         if palabra == "if":
             self.tokens.append((palabra, "IF"))
             return
