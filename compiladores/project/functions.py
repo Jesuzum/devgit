@@ -241,6 +241,9 @@ def insertar_codigo_prueba(editor_texto, sin_errores=True):
     editor_texto.delete("1.0", tk.END)
     editor_texto.insert("1.0", codigo)
 
+    # Aplicar resaltado de sintaxis al nuevo código
+    colorear_sintaxis(editor_texto)
+
 def limpiar_salida(salida_texto):
     """
     Limpia el contenido del área de salida, dejando intacto el área del editor de texto.
@@ -268,6 +271,7 @@ def mostrar_atajos():
     - Ctrl + C → Copiar
     - Ctrl + V → Pegar
     - Ctrl + A → Seleccionar todo
+    - Ctrl + F → Buscar texto
     - Ctrl + E → Cambiar fondo del editor
     - Ctrl + L → Limpiar salida
     - Ctrl + D → Abrir documentación de Perl
@@ -279,7 +283,7 @@ def mostrar_atajos():
     messagebox.showinfo("Atajos de Teclado", atajos)
 
 #---------------------------------------------------------------------------------------------------------------------
-# Atajos de teclado
+# Funcuion para buscar texto especifico
 def buscar_texto(editor_texto):
     """Abre un cuadro de diálogo para buscar texto en el editor."""
     buscar = tk.simpledialog.askstring("Buscar", "Ingrese el texto a buscar:")
@@ -296,3 +300,136 @@ def seleccionar_todo(editor_texto):
     """Selecciona todo el texto dentro del editor."""
     editor_texto.tag_add("sel", "1.0", "end")
     return "break"  # Evita que se agregue un carácter accidentalmente
+
+#---------------------------------------------------------------------------------------------------------------------
+# Resaltado de sintaxis
+def configurar_resaltado(widget, esquema="oscuro"):
+    """
+    Configura las etiquetas de resaltado en el widget Text según el esquema indicado.
+    
+    Parámetros:
+      widget: el widget Text donde se aplicarán las etiquetas.
+      esquema: 'oscuro' o 'claro' determina qué colores se usan.
+    """
+    if esquema == "oscuro":
+        widget.tag_configure("keyword", foreground="#31adb1")
+        widget.tag_configure("string", foreground="#8ed64d")
+        widget.tag_configure("comment", foreground="gray")
+    elif esquema == "claro":
+        widget.tag_configure("keyword", foreground="blue")
+        widget.tag_configure("string", foreground="green")
+        widget.tag_configure("comment", foreground="gray")
+
+def actualizar_esquema(widget):
+    """
+    Actualiza las etiquetas de resaltado según el color de fondo actual del widget.
+    
+    Se asume que: 
+      - El modo oscuro usa bg "#403853".
+      - El modo claro usa bg "#f3edff".
+    """
+    fondo = widget.cget("bg")
+    if fondo == "#403853":
+        configurar_resaltado(widget, esquema="oscuro")
+    elif fondo == "#c2bcdf":
+        configurar_resaltado(widget, esquema="claro")
+    else:
+        # Si se usa otro fondo, puedes asignar un esquema por defecto
+        configurar_resaltado(widget, esquema="oscuro")
+
+def colorear_sintaxis(widget):
+    """
+    Recorre el contenido del widget Text y aplica resaltado sintáctico sin usar expresiones regulares.
+    
+    - Palabras clave: se buscan usando find() y comprobando que estén delimitadas por caracteres especiales.
+    - Cadenas: se buscan las aperturas y cierres de comillas dobles.
+    - Comentarios: en Perl, inician con '#' y se extienden hasta el final de la línea.
+    """
+    # Eliminar etiquetas previamente aplicadas (solo las nuestras)
+    for tag in ("keyword", "string", "comment"):
+        widget.tag_remove(tag, "1.0", tk.END)
+    
+    contenido = widget.get("1.0", tk.END)
+    
+    # Lista de palabras clave de Perl
+    palabras_clave = ["use", "strict", "warnings", "sub", "if", "elsif", "else",
+                      "switch", "case", "default", "print", "my"]
+    # Conjunto de caracteres que delimitan las palabras
+    delimitadores = " \n\t{}()[],:;=+-*/<>!\"'"
+    
+    # --- Resaltar palabras clave ---
+    for palabra in palabras_clave:
+        pos = 0
+        while True:
+            pos = contenido.find(palabra, pos)
+            if pos == -1:
+                break
+            inicio = pos
+            fin = pos + len(palabra)
+            # Verificar límites: caracteres antes y después deben ser delimitadores.
+            antes = contenido[inicio - 1] if inicio > 0 else " "
+            despues = contenido[fin] if fin < len(contenido) else " "
+            if (antes in delimitadores) and (despues in delimitadores):
+                idx_inicio = "1.0+{}c".format(inicio)
+                idx_fin = "1.0+{}c".format(fin)
+                widget.tag_add("keyword", idx_inicio, idx_fin)
+            pos = fin
+
+    # --- Resaltar cadenas (se limita a comillas dobles) ---
+    pos = 0
+    while True:
+        inicio = contenido.find('"', pos)
+        if inicio == -1:
+            break
+        fin = contenido.find('"', inicio + 1)
+        if fin == -1:
+            break  # Si no se cierra la cadena, se omite
+        idx_inicio = "1.0+{}c".format(inicio)
+        idx_fin = "1.0+{}c".format(fin + 1)
+        widget.tag_add("string", idx_inicio, idx_fin)
+        pos = fin + 1
+
+    # --- Resaltar comentarios ---
+    # Se recorre línea a línea para detectar '#' que indica el inicio de un comentario.
+    lineas = contenido.splitlines()
+    num_linea = 1
+    for linea in lineas:
+        pos_hash = linea.find("#")
+        if pos_hash != -1:
+            idx_inicio = "{}.{}".format(num_linea, pos_hash)
+            idx_fin = "{}.{}".format(num_linea, len(linea))
+            widget.tag_add("comment", idx_inicio, idx_fin)
+        num_linea += 1
+
+def inicializar_editor_con_resaltado(editor_texto):
+    """
+    Inicializa el resaltado de sintaxis en el editor:
+      - Configura las etiquetas según el fondo actual.
+      - Vincula el evento <KeyRelease> para actualizar el resaltado mientras se escribe.
+      - Aplica el resaltado inicial.
+    """
+    # Configure las etiquetas en función del esquema (basado en el fondo)
+    actualizar_esquema(editor_texto)
+    
+    # Vincula el KeyRelease para actualizar el resaltado en tiempo real.
+    editor_texto.bind("<KeyRelease>", lambda event: colorear_sintaxis(editor_texto))
+    
+    # Aplica resaltado inicial.
+    colorear_sintaxis(editor_texto)
+
+def cambiar_fondo_editor(editor_texto):
+    """
+    Alterna el fondo del editor y actualiza el esquema de resaltado según el nuevo fondo.
+    """
+    color_actual = editor_texto.cget("bg")
+    
+    # Alternar entre fondo oscuro y claro
+    if color_actual == "#403853":
+        editor_texto.config(bg="#c2bcdf", fg="black")
+    else:
+        editor_texto.config(bg="#403853", fg="white")
+    
+    # Después de cambiar el fondo, actualizamos el esquema
+    actualizar_esquema(editor_texto)
+    # Reaplicar el resaltado para reflejar el esquema nuevo.
+    colorear_sintaxis(editor_texto)

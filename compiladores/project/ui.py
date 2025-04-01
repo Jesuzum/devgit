@@ -1,5 +1,6 @@
 import platform
 import tkinter as tk
+import tkinter.font as tkFont
 from tkinter import ttk
 from functions import *
 def ui_init():
@@ -136,6 +137,7 @@ def ui_init():
 
 
     #----------------------------------------------------------------------------------------------------------------------
+
     # Frame editor de texto
     frame_editor = tk.Frame(principal, bg="#77747e", borderwidth=0)
     frame_editor.pack(fill="both", expand=True)
@@ -151,12 +153,17 @@ def ui_init():
     scroll_x = ttk.Scrollbar(frame_editor, orient='horizontal')
     scroll_x.pack(side='bottom', fill='x')
 
+    # Configuración de fuente
+    fuente_editor = tkFont.Font(family="Consolas", size=14, weight="bold")
+
     # Editor de texto
     editor_texto = tk.Text(
-        frame_editor, bg="#403853", borderwidth=0, fg="white",
+        frame_editor,
+        bg="#403853", borderwidth=0, fg="white",
         wrap="none", undo=True,
         yscrollcommand=scroll_y.set,
-        xscrollcommand=scroll_x.set
+        xscrollcommand=scroll_x.set,
+        font=fuente_editor
     )
     editor_texto.pack(fill="both", expand=True)
 
@@ -164,17 +171,9 @@ def ui_init():
     scroll_y.config(command=editor_texto.yview)
     scroll_x.config(command=editor_texto.xview)
 
-    # Cambiar el fondo del editor de texto
-    def cambiar_fondo_editor(editor_texto):
-        """Cambiar el fondo del editor de texto y la fuente."""
-        color_actual = editor_texto.cget("bg")
-        
-        if color_actual == "#403853":
-            # Cambiar a fondo oscuro y texto blanco
-            editor_texto.config(bg="#f3edff", fg="black")
-        else:
-            # Cambiar a fondo claro y texto blanco
-            editor_texto.config(bg="#403853", fg="white")
+    # Inicializar el resaltado de sintaxis en el editor.
+    inicializar_editor_con_resaltado(editor_texto)
+
 
     #----------------------------------------------------------------------------------------------------------------------
     # Frame de la salida 
