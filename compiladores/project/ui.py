@@ -206,9 +206,6 @@ def ui_init():
     handle.bind("<ButtonPress-1>", start_resize)
     handle.bind("<B1-Motion>", resize)
 
-
-
-
     #---------------------------------------------------------------------------------------------------------------------
     # Atajos de teclado
     # Asignar atajos de teclado
