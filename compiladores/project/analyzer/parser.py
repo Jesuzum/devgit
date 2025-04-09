@@ -20,11 +20,10 @@ class AnalizadorSintactico:
     def advance(self):
         """Avanza al siguiente token (recordando que current_token() se salta los comentarios)."""
         self.pos += 1
-
     def match(self, expected, tipo_esperado=None):
         """
         Consume el token actual si coincide con 'expected' (y opcionalmente con 'tipo_esperado');
-        en caso contrario, registra un error.
+        en caso contrario, registra un error y fuerza un avance para evitar ciclos.
         """
         token = self.current_token()
         if token[0] == expected and (tipo_esperado is None or token[1] == tipo_esperado):
@@ -32,6 +31,8 @@ class AnalizadorSintactico:
             return token
         else:
             self.error(f"Se esperaba '{expected}' (tipo {tipo_esperado}) pero se encontró {token}")
+            # Forzamos avanzar para no quedar atrapados
+            self.advance()
             return None
 
     def error(self, mensaje):
@@ -73,6 +74,10 @@ class AnalizadorSintactico:
                 self.return_statement()
             else:
                 self.expression_statement()  # Para otras palabras reservadas.
+
+        elif token[1] == "FOR":
+            self.for_statement()
+
         elif token[1] in ("IF", "ELSIF", "ELSE"):
             self.conditional_statement()
         elif token[1] == "SWITCH":
@@ -309,6 +314,90 @@ class AnalizadorSintactico:
             self.statement()
         self.match("}", "delimitador")
         print("Sentencia 'default' analizada.")
+        
+    def for_statement(self):
+        """
+        Procesa la estructura for (estilo Perl). Se admiten dos formas:
+
+        1) For clásico:
+            for ( inicialización ; condición ; incremento ) { bloque }
+            
+        2) For iterativo:
+            for VARIABLE ( lista ) { bloque }
+        """
+        # Procesar la palabra clave for.
+        self.match("for", "FOR")
+        
+        # Comprobar si se trata de la forma clásica:
+        if self.current_token()[0] == "(" and self.current_token()[1] == "delimitador":
+            # Forma clásica
+            self.match("(", "delimitador")
+            
+            # Inicialización (p.ej., my $i = 0)
+            self.for_initialization()
+            self.match(";", "SEMICOLON")
+            
+            # Condición (p.ej., $i < 10)
+            self.for_condition()
+            self.match(";", "SEMICOLON")
+            
+            # Incremento (p.ej., $i++)
+            self.for_increment()
+            self.match(")", "delimitador")
+            
+            # Bloque
+            self.block()
+            print("Sentencia 'for' clásica analizada.")
+        
+        # Sino, forma iterativa: for VARIABLE ( lista ) { bloque }
+        elif self.current_token()[1] == "VARIABLE":
+            # Se procesa la variable iteradora.
+            self.match_type("VARIABLE")
+            
+            # La lista de elementos debe estar entre paréntesis.
+            self.match("(", "delimitador")
+            self.for_list()
+            self.match(")", "delimitador")
+            
+            # Bloque
+            self.block()
+            print("Sentencia 'for' iterativa analizada.")
+        
+        else:
+            self.error("Estructura for inválida.")
+
+    def for_initialization(self):
+        """
+        Procesa la parte de inicialización del for clásico.
+        Se asume que es una expresión, que puede incluir, por ejemplo, la palabra "my".
+        """
+        self.expression()
+
+    def for_condition(self):
+        """
+        Procesa la condición del for clásico, que debe evaluar a un valor booleano.
+        """
+        self.expression()
+
+    def for_increment(self):
+        """
+        Procesa la parte de incremento del for clásico.
+        Se espera una expresión que modifique la variable iteradora (por ejemplo: $i++ o $i += 1).
+        """
+        self.expression()
+
+    def for_list(self):
+        """
+        Procesa la lista para el for iterativo.
+        Se asume que es una lista de elementos separados por comas.
+        """
+        # Procesar el primer elemento de la lista.
+        self.expression()
+        # Mientras se encuentre la coma, se consumen y se procesa el siguiente elemento.
+        while self.pos < len(self.tokens) and self.current_token()[0] == ",":
+            self.match(",", "delimitador")
+            self.expression()
+
 
     def show_errors(self):
         """Muestra los errores sintácticos encontrados."""
