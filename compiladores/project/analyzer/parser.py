@@ -252,6 +252,7 @@ class AnalizadorSintactico:
             self.match("else", "ELSE")
             self.block()
             print("Sentencia 'else' analizada.")
+            
     def switch_statement(self):
         """
         Procesa la estructura switch:

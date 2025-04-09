@@ -311,16 +311,23 @@ class AnalizadorSemantico:
         
         # Validar la expresión entre paréntesis.
         if i < n and tokens[i][0] == "(" and tokens[i][1] == "delimitador":
-            i += 1
-            # Procesar la expresión del switch; por cada token variable se valida.
-            while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
-                if tokens[i][1] == "variable":
-                    self.validar_variable(tokens[i][0])
-                i += 1
-            if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
-                i += 1  # Saltar ')'
+            i += 1  # Saltar '('
+            # Validar que exista una variable y nada más dentro de los paréntesis:
+            if i < n and tokens[i][1] == "variable":
+                self.validar_variable(tokens[i][0])
+                i += 1  # Procesamos la variable
+                # Después de la variable, esperamos de inmediato el token de cierre ')'
+                if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
+                    i += 1  # Saltar ')'
+                else:
+                    self.errores.append("Error semántico: se esperaba ')' después de la variable en switch().")
             else:
-                self.errores.append("Error semántico: se esperaba ')' en la expresión del switch.")
+                self.errores.append("Error semántico: se esperaba una variable dentro de switch().")
+                # Buscamos saltar tokens hasta encontrar el token de cierre para sincronizar
+                while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
+                    i += 1
+                if i < n:
+                    i += 1  # Saltar ')'
         else:
             self.errores.append("Error semántico: se esperaba '(' después de 'switch'.")
         
@@ -346,6 +353,7 @@ class AnalizadorSemantico:
         
         print("Análisis semántico: Sentencia 'switch' analizada.")
         return i
+
     
     def _analizar_case_clause(self, tokens, i):
         """
