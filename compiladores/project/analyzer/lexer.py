@@ -110,7 +110,12 @@ class AnalizadorLexico:
         if self.dentro_de_hash:
             self.tokens.append((palabra, "clave de hash"))
             return
-
+        
+        # Reconocimiento para el ciclo for.
+        if palabra == "for":
+            self.tokens.append((palabra, "FOR"))
+            return
+        
         # Reconocimiento especial para sentencias condicionales
         # Agregamos reconocimiento para switch, case y default.
         if palabra == "switch":
