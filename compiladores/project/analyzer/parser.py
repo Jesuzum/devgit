@@ -72,12 +72,13 @@ class AnalizadorSintactico:
                 self.function_definition()
             elif token[0] == "return":
                 self.return_statement()
+            elif token[0] == "while":  # <-- Agregamos la rama para "while"
+                self.while_statement()
             else:
                 self.expression_statement()  # Para otras palabras reservadas.
 
         elif token[1] == "FOR":
             self.for_statement()
-
         elif token[1] in ("IF", "ELSIF", "ELSE"):
             self.conditional_statement()
         elif token[1] == "SWITCH":
@@ -186,13 +187,29 @@ class AnalizadorSintactico:
     def term(self):
         """
         Procesa un término que puede ser:
-          - una variable, número o cadena,
-          - una llamada a función (clasificada como 'función incorporada' o 'llamada a función'),
-          - o una expresión entre paréntesis.
+        - una variable, número o cadena;
+        - una llamada a función (clasificada como 'función incorporada' o 'llamada a función'):
+        - o una expresión entre paréntesis.
+        
+        Se ha agregado un caso específico para detectar el operador de post-incremento '++'
+        cuando el término es una variable.
         """
         token = self.current_token()
         if token[1] in ("variable", "número", "cadena"):
-            self.advance()
+            self.advance()  # Consumimos la variable (o número o cadena)
+            # Si se trata de una variable, comprobamos si le siguen dos tokens '+' consecutivos.
+            if token[1] == "variable":
+                # Verificamos que queden al menos dos tokens y que ambos sean "+" de tipo "operador"
+                if (self.pos < len(self.tokens) and self.tokens[self.pos][0] == "+" and 
+                    self.tokens[self.pos][1] == "operador"):
+                    if (self.pos + 1 < len(self.tokens) and self.tokens[self.pos+1][0] == "+" and 
+                        self.tokens[self.pos+1][1] == "operador"):
+                        # Se reconoce el post-incremento; consumimos ambos tokens.
+                        self.advance()  # Consume el primer '+'
+                        self.advance()  # Consume el segundo '+'
+                        # Opcional: podrías marcar este término como post-incrementado si fuera relevante.
+            return
+
         elif token[1] in ("función incorporada", "llamada a función"):
             nombre_funcion = token[0]
             self.advance()
@@ -318,60 +335,72 @@ class AnalizadorSintactico:
     def for_statement(self):
         """
         Procesa la estructura for (estilo Perl). Se admiten dos formas:
-
         1) For clásico:
             for ( inicialización ; condición ; incremento ) { bloque }
-            
         2) For iterativo:
-            for VARIABLE ( lista ) { bloque }
+            for variable ( lista ) { bloque }
         """
-        # Procesar la palabra clave for.
+        # Consumir la palabra clave 'for'
         self.match("for", "FOR")
-        
-        # Comprobar si se trata de la forma clásica:
-        if self.current_token()[0] == "(" and self.current_token()[1] == "delimitador":
-            # Forma clásica
+        token = self.current_token()
+
+        # Caso 1: for clásico, se espera que el siguiente token sea "(" (delimitador)
+        if token[0] == "(" and token[1] == "delimitador":
             self.match("(", "delimitador")
-            
-            # Inicialización (p.ej., my $i = 0)
+            # Procesar la parte de inicialización
             self.for_initialization()
-            self.match(";", "SEMICOLON")
-            
-            # Condición (p.ej., $i < 10)
+            self.match(";", "delimitador")
+            # Procesar la condición
             self.for_condition()
-            self.match(";", "SEMICOLON")
-            
-            # Incremento (p.ej., $i++)
+            self.match(";", "delimitador")
+            # Procesar el incremento
             self.for_increment()
             self.match(")", "delimitador")
-            
-            # Bloque
+            # Procesar el bloque de sentencias
             self.block()
             print("Sentencia 'for' clásica analizada.")
         
-        # Sino, forma iterativa: for VARIABLE ( lista ) { bloque }
-        elif self.current_token()[1] == "VARIABLE":
-            # Se procesa la variable iteradora.
-            self.match_type("VARIABLE")
-            
-            # La lista de elementos debe estar entre paréntesis.
+        # Caso 2: for iterativo, se espera que el siguiente token sea una variable
+        elif token[1] == "variable" or (token[1] == "llamada a función" and token[0].startswith('$')):
+            # Si el token se etiquetó como "llamada a función" pero empieza con '$',
+            # lo tratamos como variable.
+            if token[1] == "llamada a función":
+                token = (token[0], "variable")
+            self.advance()  # Consume el token del iterador
             self.match("(", "delimitador")
             self.for_list()
             self.match(")", "delimitador")
-            
-            # Bloque
             self.block()
             print("Sentencia 'for' iterativa analizada.")
-        
         else:
             self.error("Estructura for inválida.")
+
 
     def for_initialization(self):
         """
         Procesa la parte de inicialización del for clásico.
-        Se asume que es una expresión, que puede incluir, por ejemplo, la palabra "my".
+        Permite declaraciones del tipo 'my $i = 0' o simples expresiones.
         """
-        self.expression()
+        token = self.current_token()
+        # Si la inicialización inicia con "my", lo tratamos como una declaración
+        if token[0] == "my" and token[1] == "palabra reservada":
+            self.match("my", "palabra reservada")
+            token = self.current_token()
+            if token[1] == "variable":
+                self.advance()  # Consume la variable (ej.: $i)
+            else:
+                self.error("Se esperaba una variable después de 'my' en la inicialización del for.")
+            
+            token = self.current_token()
+            # Se espera el operador '='
+            if token[0] == "=" and token[1] == "operador":
+                self.match("=", "operador")
+                self.expression()  # Procesa la expresión asignada (ej.: 0)
+            else:
+                self.error("Se esperaba '=' en la inicialización del for.")
+        else:
+            # Si no es una declaración, se procesa como una expresión normal.
+            self.expression()
 
     def for_condition(self):
         """
@@ -398,6 +427,22 @@ class AnalizadorSintactico:
             self.match(",", "delimitador")
             self.expression()
 
+    def while_statement(self):
+        """
+        Procesa la sentencia while en Perl.
+        Sintaxis:
+        while ( condición ) { bloque }
+        
+        - 'while' es la palabra reservada.
+        - La condición se encuentra entre paréntesis.
+        - El bloque de sentencias se delimita por '{' y '}'.
+        """
+        self.match("while", "palabra reservada")
+        self.match("(", "delimitador")
+        self.expression()
+        self.match(")", "delimitador")
+        self.block()
+        print("Sentencia 'while' analizada.")
 
     def show_errors(self):
         """Muestra los errores sintácticos encontrados."""

@@ -116,7 +116,7 @@ class AnalizadorSemantico:
                     self.errores.append("Error semántico: se esperaba el nombre de la función después de 'sub'.")
                     i += 1
                     continue
-
+            
                 # Se espera el bloque de la función: { ... }
                 parametros = []
                 if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
@@ -136,6 +136,13 @@ class AnalizadorSemantico:
                 self.agregar_funcion(nombre_funcion, parametros)
                 print("Análisis semántico: Definición de función analizada.")
 
+            elif valor == "while" and tipo == "palabra reservada":
+                i = self._analizar_while(tokens, i)
+                continue
+
+            elif valor == "for" and tipo == "FOR":
+                i = self._analizar_for(tokens, i)
+                continue
             # Primero procesamos estructuras condicionales antes que llamadas a función.
             elif valor == "if" and tipo == "IF":
                 # Procesa la estructura condicional (if/elsif/else)
@@ -151,22 +158,28 @@ class AnalizadorSemantico:
             # Luego, procesamos llamadas a función.
             elif (tipo == "llamada a función") or (i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador"):
                 nombre_funcion = valor
-                argumentos = []
-                if i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador":
-                    i += 2  # Saltar el nombre y el '('.
-                    while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
-                        if tokens[i][1] in ("variable", "número", "cadena"):
-                            argumentos.append(tokens[i][0])
-                        i += 1
-                    if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
-                        i += 1  # Saltar ')'
-                else:
+                # Agregamos una condición para omitir palabras reservadas que no deben ser validadas como funciones.
+                if nombre_funcion in ["for", "if", "elsif", "else", "switch", "case", "default", "sub", "return"]:
+                    # Si se trata de una palabra reservada de control, simplemente saltamos su validación semántica.
                     i += 1
-                    if i < n and tokens[i][1] in ("variable", "número", "cadena"):
-                        argumentos.append(tokens[i][0])
+                    print(f"Análisis semántico: Estructura de control '{nombre_funcion}' analizada.")
+                else:
+                    argumentos = []
+                    if i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador":
+                        i += 2  # Saltamos nombre y "(".
+                        while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
+                            if tokens[i][1] in ("variable", "número", "cadena"):
+                                argumentos.append(tokens[i][0])
+                            i += 1
+                        if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
+                            i += 1  # Saltamos ')'
+                    else:
                         i += 1
-                self.validar_llamada_funcion(nombre_funcion, argumentos)
-                print("Análisis semántico: Llamada a función analizada.")
+                        if i < n and tokens[i][1] in ("variable", "número", "cadena"):
+                            argumentos.append(tokens[i][0])
+                            i += 1
+                    self.validar_llamada_funcion(nombre_funcion, argumentos)
+                    print("Análisis semántico: Llamada a función analizada.")
 
             elif tipo == "variable":
                 # Uso de variable.
@@ -406,14 +419,15 @@ class AnalizadorSemantico:
         
         print("Análisis semántico: Sentencia 'default' analizada.")
         return i
+    
     def _analizar_for(self, tokens, i):
         """
         Analiza semánticamente el ciclo for (estilo Perl). Se admiten dos formas:
 
         1) For clásico:
-            for ( inicialización ; condición ; incremento ) { bloque }
+        for ( inicialización ; condición ; incremento ) { bloque }
         2) For iterativo:
-            for VARIABLE ( lista ) { bloque }
+        for VARIABLE ( lista ) { bloque }
 
         Retorna el nuevo índice tras analizar la estructura.
         """
@@ -421,114 +435,104 @@ class AnalizadorSemantico:
         # Se asume que tokens[i] es ("for", "FOR")
         i += 1
 
-        # -- Forma clásica: se espera '(' inmediatamente después de 'for'
+        # --- Forma clásica:
         if i < n and tokens[i][0] == "(" and tokens[i][1] == "delimitador":
             i += 1  # Saltar "("
-            init_tokens = []
-            cond_tokens = []
-            incr_tokens = []
+            init_tokens, cond_tokens, incr_tokens = [], [], []
             current_section = init_tokens
 
-            # Recorremos la cabecera hasta encontrar el ')'
+            # Recorremos la cabecera hasta encontrar el ')' que cierra la parte entre paréntesis.
             while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
-                prev_i = i  # Guardamos el índice previo
-                if tokens[i][0] == ";" and tokens[i][1] == "SEMICOLON":
+                if tokens[i][0] == ";" and tokens[i][1] == "delimitador":
                     if current_section is init_tokens:
                         current_section = cond_tokens
                     elif current_section is cond_tokens:
                         current_section = incr_tokens
                     else:
-                        self.errores.append("Error semántico (for clásico): demasiados ';'.")
+                        self.errores.append("Error semántico (for clásico): Demasiados ';'.")
                     i += 1
                 else:
-                    init_or_other = current_section  # solo para claridad
                     current_section.append(tokens[i])
                     i += 1
-                if i == prev_i:
-                    self.errores.append("Error semántico (for clásico): No se avanzó en la cabecera; forzando avance.")
-                    i += 1
+
             if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
                 i += 1  # Saltar ")"
             else:
-                self.errores.append("Error semántico (for clásico): Se esperaba ')' para cerrar la cabecera.")
-            
-            # Validar la inicialización
+                self.errores.append("Error semántico (for clásico): Falta ')' en la cabecera.")
+                
+            # Validar la sección de inicialización.
             if not init_tokens:
                 self.errores.append("Error semántico (for clásico): La inicialización está vacía.")
             else:
-                if not any(tok[0] == "=" and tok[1] == "OPERATOR" for tok in init_tokens):
+                if not any(tok[0] == "=" and tok[1] == "operador" for tok in init_tokens):
                     self.errores.append("Error semántico (for clásico): La inicialización debe incluir '='.")
-            
-            # Validar la condición
+                
+            # Validar la condición (por ejemplo, que contenga un operador relacional).
             relational_ops = {"<", ">", "<=", ">=", "==", "!="}
             if not cond_tokens:
                 self.errores.append("Error semántico (for clásico): La condición está vacía.")
             else:
-                if not any(tok[0] in relational_ops for tok in cond_tokens if tok[1]=="OPERATOR"):
+                if not any(tok[0] in relational_ops and tok[1] == "operador" for tok in cond_tokens):
                     self.errores.append("Error semántico (for clásico): La condición debe tener un operador relacional.")
-            
-            # Validar el incremento
+                
+            # Validar la expresión de incremento.
             if not incr_tokens:
                 self.errores.append("Error semántico (for clásico): La expresión de incremento está vacía.")
             else:
-                increment_ops = {"++", "--", "+=", "-="}
-                if not any(tok[0] in increment_ops or (tok[0]=="=" and tok[1]=="OPERATOR") for tok in incr_tokens):
+                valid_incr = False
+                # Opción 1: La expresión de incremento se reconoce en un solo token (por ejemplo, "++", "--", "+=", "-=" o "=").
+                if len(incr_tokens) == 1 and incr_tokens[0][1] == "operador" and incr_tokens[0][0] in {"++", "--", "+=", "-=", "="}:
+                    valid_incr = True
+                # Opción 2: Patrón de post-incremento en tres tokens: variable, '+' y '+'.
+                elif len(incr_tokens) == 3:
+                    if (incr_tokens[0][1] == "variable" and
+                        incr_tokens[1][0] == "+" and incr_tokens[1][1] == "operador" and
+                        incr_tokens[2][0] == "+" and incr_tokens[2][1] == "operador"):
+                        valid_incr = True
+                if not valid_incr:
                     self.errores.append("Error semántico (for clásico): La expresión de incremento no es válida.")
-            
-            # Procesar el bloque:
+                
+            # Procesar el bloque que sigue (se espera que inicie con '{').
             if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
-                prev_i = i
                 i = self._skip_block(tokens, i)
-                if i == prev_i:
-                    self.errores.append("Error semántico (for clásico): No se avanzó en el bloque; forzando avance.")
-                    i += 1
             else:
                 self.errores.append("Error semántico (for clásico): Se esperaba '{' después de la cabecera.")
-            
+                
             print("Análisis semántico: ciclo for clásico analizado.")
             return i
 
-        # -- Forma iterativa: se espera que después de 'for' venga un token de tipo variable.
-        elif i < n and tokens[i][1] == "variable":
-            prev_i = i
+        # --- Forma iterativa:
+        elif i < n and (tokens[i][1] == "variable" or (tokens[i][1] == "llamada a función" and tokens[i][0].startswith('$'))):
             var_token = tokens[i]
-            self.validar_variable(var_token[0])
-            i += 1
-            if i == prev_i:
-                self.errores.append("Error semántico (for iterativo): No se avanzó tras validar la variable; forzando avance.")
-                i += 1
+            if var_token[1] == "llamada a función":
+                var_token = (var_token[0], "variable")
             
-            # Procesar la lista de elementos.
+            # Si la variable iteradora no existe, la agregamos al ámbito actual.
+            if not self.buscar_variable(var_token[0]):
+                self.agregar_variable(var_token[0], "iterador")
+            
+            i += 1
+            # Se espera la lista de elementos entre paréntesis:
             if i < n and tokens[i][0] == "(" and tokens[i][1] == "delimitador":
                 i += 1
                 list_tokens = []
                 while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
-                    prev_j = i
                     list_tokens.append(tokens[i])
                     i += 1
-                    if i == prev_j:
-                        self.errores.append("Error semántico (for iterativo): No se avanzó en la lista; forzando avance.")
-                        i += 1
-                        break
                 if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
-                    i += 1
+                    i += 1  # Consumir ')'
                 else:
-                    self.errores.append("Error semántico (for iterativo): Se esperaba ')' para cerrar la lista.")
+                    self.errores.append("Error semántico (for iterativo): Falta ')' para cerrar la lista.")
                 if not list_tokens:
                     self.errores.append("Error semántico (for iterativo): La lista está vacía.")
             else:
                 self.errores.append("Error semántico (for iterativo): Se esperaba '(' después de la variable.")
-            
-            # Procesar el bloque:
+                
             if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
-                prev_i = i
                 i = self._skip_block(tokens, i)
-                if i == prev_i:
-                    self.errores.append("Error semántico (for iterativo): No se avanzó en el bloque; forzando avance.")
-                    i += 1
             else:
                 self.errores.append("Error semántico (for iterativo): Se esperaba '{' después del encabezado.")
-            
+                
             print("Análisis semántico: ciclo for iterativo analizado.")
             return i
 
@@ -536,11 +540,42 @@ class AnalizadorSemantico:
             self.errores.append("Error semántico: Estructura for inválida.")
             return i
 
-
-    def mostrar_errores(self):
-        if self.errores:
-            print("\n=== ERRORES SEMÁNTICOS ===")
-            for error in self.errores:
-                print(error)
+    def _analizar_while(self, tokens, i):
+        """
+        Analiza semánticamente la sentencia while.
+        Sintaxis esperada:
+        while ( condición ) { bloque }
+        
+        Retorna el nuevo índice después de procesar el while.
+        """
+        n = len(tokens)
+        # Se asume que tokens[i] es ("while", "palabra reservada")
+        i += 1  # Saltar "while"
+        
+        # Consumir el paréntesis de apertura
+        if i < n and tokens[i][0] == "(" and tokens[i][1] == "delimitador":
+            i += 1  # Saltar "("
         else:
-            print("Análisis semántico completado sin errores.")
+            self.errores.append("Error semántico: se esperaba '(' después de 'while'.")
+        
+        # Procesar la condición
+        while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
+            # Validamos variables en la condición
+            if tokens[i][1] == "variable":
+                self.validar_variable(tokens[i][0])
+            i += 1
+        
+        # Consumir el paréntesis de cierre
+        if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
+            i += 1
+        else:
+            self.errores.append("Error semántico: se esperaba ')' para cerrar la condición del while.")
+        
+        # Procesar el bloque que inicia con '{'
+        if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
+            i = self._skip_block(tokens, i)
+        else:
+            self.errores.append("Error semántico: se esperaba bloque '{' tras el while.")
+        
+        print("Análisis semántico: Sentencia 'while' analizada.")
+        return i

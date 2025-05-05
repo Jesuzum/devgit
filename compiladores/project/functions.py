@@ -353,7 +353,7 @@ def colorear_sintaxis(widget):
     
     # Lista de palabras clave de Perl
     palabras_clave = ["use", "strict", "warnings", "sub", "if", "elsif", "else",
-                      "switch", "case", "default", "print", "my"]
+                      "switch", "for", "while", "case", "default", "print", "my"]
     # Conjunto de caracteres que delimitan las palabras
     delimitadores = " \n\t{}()[],:;=+-*/<>!\"'"
     
