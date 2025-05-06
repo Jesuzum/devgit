@@ -66,3 +66,66 @@ while $contador < 5) {
     $contador++;
 }
 """
+"""
+Prueba para elementos anidados
+use strict;
+use warnings;
+
+# Declaramos algunas variables para la prueba.
+my $condicion = 1;
+my $contador = 0;
+
+# Estructura condicional principal.
+if ($condicion) {
+    print "Dentro del if principal.\n";
+    
+    # Mientras se cumpla la condición, se ejecuta el while.
+    while ($contador < 3) {
+        print "  Dentro del while: contador = $contador\n";
+        
+        # Para cada iteración del while, se ejecuta un ciclo for.
+        for (my $i = 0; $i < 2; $i++) {
+            print "    Dentro del for: i = $i\n";
+        }
+        
+        $contador++;
+    }
+} else {
+    print "Dentro del else.\n";
+}
+
+# Estructura if-else adicional para probar la anidación.
+if (0) {
+    print "Este bloque if no se ejecuta.\n";
+} else {
+    print "Bloque else correctamente ejecutado.\n";
+}
+
+"""
+"""
+anidacion con errores
+use strict;
+use warnings;
+
+my $condicion = 1;
+my $contador = 0;
+
+if ($condicion) {
+    print "Dentro del if principal.\n";
+    
+    while ($contador < 3) {
+        print "Dentro del while: contador = $contador\n";
+        
+        # ERROR: El ciclo for inicia pero se omite la llave de cierre '}'.
+        for (my $i = 0; $i < 2; $i++) {
+            print "Dentro del for: i = $i\n";
+        # Aquí falta la llave de cierre para el for.
+
+        $contador++;
+    }  # Supuestamente cierra el while, pero el for sigue abierto.
+}  # Cierra el if.
+
+else {
+    print "Dentro del else.\n";
+}
+"""

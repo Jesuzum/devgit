@@ -65,15 +65,19 @@ class AnalizadorSemantico:
     def analizar(self, tokens):
         """
         Recorre la lista de tokens y realiza las validaciones semánticas:
-          - Declaración y uso de variables.
-          - Definición de funciones (y extracción de parámetros).
-          - Llamadas a funciones.
-          - Estructuras condicionales (if / elsif / else).
+        - Declaración y uso de variables.
+        - Definición de funciones (y extracción de parámetros).
+        - Llamadas a funciones.
+        - Estructuras condicionales (if / elsif / else), bucles (while, for) y switch.
+        - Validación de estructuras anidadas mediante una pila (bloques_activos).
         """
+        self.bloques_activos = []  # Pila para rastrear estructuras anidadas.
         i = 0
         n = len(tokens)
         while i < n:
             valor, tipo = tokens[i]
+
+            # --- Declaración de variables ---
             if valor == "my" and tipo == "palabra reservada":
                 # Declaración de variable o lista.
                 if i + 1 < n:
@@ -101,8 +105,8 @@ class AnalizadorSemantico:
                     continue
                 print("Análisis semántico: Declaración analizada.")
 
+            # --- Definición de funciones ---
             elif valor == "sub" and tipo == "palabra reservada":
-                # Definición de función.
                 if i + 1 < n:
                     func_valor, func_tipo = tokens[i+1]
                     if func_tipo == "nombre de función":
@@ -116,7 +120,7 @@ class AnalizadorSemantico:
                     self.errores.append("Error semántico: se esperaba el nombre de la función después de 'sub'.")
                     i += 1
                     continue
-            
+
                 # Se espera el bloque de la función: { ... }
                 parametros = []
                 if i < n and tokens[i][0] == "{" and tokens[i][1] == "delimitador":
@@ -136,43 +140,79 @@ class AnalizadorSemantico:
                 self.agregar_funcion(nombre_funcion, parametros)
                 print("Análisis semántico: Definición de función analizada.")
 
+            # --- Estructuras de control anidadas ---
             elif valor == "while" and tipo == "palabra reservada":
+                self.bloques_activos.append("while")
                 i = self._analizar_while(tokens, i)
+                # Se asume que _analizar_while consume el bloque correspondiente.
+                if not self.bloques_activos or self.bloques_activos.pop() != "while":
+                    self.errores.append("Error semántico: Bloque 'while' no se cerró correctamente.")
                 continue
 
             elif valor == "for" and tipo == "FOR":
+                self.bloques_activos.append("for")
                 i = self._analizar_for(tokens, i)
+                if not self.bloques_activos or self.bloques_activos.pop() != "for":
+                    self.errores.append("Error semántico: Bloque 'for' no se cerró correctamente.")
                 continue
-            # Primero procesamos estructuras condicionales antes que llamadas a función.
-            elif valor == "if" and tipo == "IF":
-                # Procesa la estructura condicional (if/elsif/else)
-                i = self._analizar_condicional(tokens, i)
-                # Los mensajes correspondientes se muestran dentro de _analizar_condicional.
-            elif valor in ("elsif", "else") and tipo in ("ELSIF", "ELSE"):
-                self.errores.append("Error semántico: 'elsif' o 'else' sin que preceda un 'if'.")
-                i += 1
-            # Despues procesamos la sentencia switch.
-            elif valor == "switch" and tipo == "SWITCH":
-                i = self._analizar_switch(tokens, i)
 
-            # Luego, procesamos llamadas a función.
+            elif valor == "if" and tipo == "IF":
+                self.bloques_activos.append("if")
+                i = self._analizar_condicional(tokens, i)
+                if not self.bloques_activos or self.bloques_activos.pop() != "if":
+                    self.errores.append("Error semántico: Bloque 'if' no se cerró correctamente.")
+                continue
+
+            elif valor in ("elsif", "else") and tipo in ("ELSIF", "ELSE"):
+                # Se validará que haya un 'if' abierto. Si no, es un error.
+                if not self.bloques_activos or self.bloques_activos[-1] != "if":
+                    self.errores.append("Error semántico: 'elsif' o 'else' sin que preceda un 'if'.")
+                else:
+                    i = self._analizar_condicional(tokens, i)
+                continue
+
+            elif valor == "switch" and tipo == "SWITCH":
+                self.bloques_activos.append("switch")
+                i = self._analizar_switch(tokens, i)
+                if not self.bloques_activos or self.bloques_activos.pop() != "switch":
+                    self.errores.append("Error semántico: Bloque 'switch' no se cerró correctamente.")
+                continue
+
+            elif valor == "case" and tipo == "CASE":
+                if not self.bloques_activos or self.bloques_activos[-1] != "switch":
+                    self.errores.append("Error semántico: 'case' fuera de una estructura 'switch'.")
+                    i += 1
+                    continue
+                else:
+                    i = self._analizar_case(tokens, i)
+                continue
+
+            # --- Manejo de cierre de bloque extra ---
+            elif valor == "}" and tipo == "delimitador":
+                if self.bloques_activos:
+                    self.bloques_activos.pop()
+                else:
+                    self.errores.append("Error semántico: '}' sin bloque abierto.")
+                i += 1
+                continue
+
+            # --- Llamadas a funciones / expresiones ---
             elif (tipo == "llamada a función") or (i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador"):
                 nombre_funcion = valor
-                # Agregamos una condición para omitir palabras reservadas que no deben ser validadas como funciones.
+                # Omitir validación para palabras reservadas de control.
                 if nombre_funcion in ["for", "if", "elsif", "else", "switch", "case", "default", "sub", "return"]:
-                    # Si se trata de una palabra reservada de control, simplemente saltamos su validación semántica.
                     i += 1
                     print(f"Análisis semántico: Estructura de control '{nombre_funcion}' analizada.")
                 else:
                     argumentos = []
                     if i+1 < n and tokens[i+1][0] == "(" and tokens[i+1][1] == "delimitador":
-                        i += 2  # Saltamos nombre y "(".
+                        i += 2  # Saltar nombre y "("
                         while i < n and not (tokens[i][0] == ")" and tokens[i][1] == "delimitador"):
                             if tokens[i][1] in ("variable", "número", "cadena"):
                                 argumentos.append(tokens[i][0])
                             i += 1
                         if i < n and tokens[i][0] == ")" and tokens[i][1] == "delimitador":
-                            i += 1  # Saltamos ')'
+                            i += 1  # Saltar ")"
                     else:
                         i += 1
                         if i < n and tokens[i][1] in ("variable", "número", "cadena"):
@@ -180,13 +220,13 @@ class AnalizadorSemantico:
                             i += 1
                     self.validar_llamada_funcion(nombre_funcion, argumentos)
                     print("Análisis semántico: Llamada a función analizada.")
-
+            
+            # --- Uso de variables ---
             elif tipo == "variable":
-                # Uso de variable.
                 self.validar_variable(valor)
                 i += 1
                 print("Análisis semántico: Uso de variable analizada.")
-
+            
             else:
                 i += 1
 
