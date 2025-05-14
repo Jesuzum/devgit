@@ -76,7 +76,6 @@ class AnalizadorSemantico:
         n = len(tokens)
         while i < n:
             valor, tipo = tokens[i]
-
             # --- Declaración de variables ---
             if valor == "my" and tipo == "palabra reservada":
                 # Declaración de variable o lista.
@@ -93,14 +92,32 @@ class AnalizadorSemantico:
                         for var in vars_lista:
                             self.agregar_variable(var, "desconocido")
                     elif next_tipo == "variable":
-                        self.agregar_variable(next_valor, "desconocido")
-                        i += 2
+                        variable_name = next_valor
+                        self.agregar_variable(variable_name, "desconocido")
+                        i += 2  # Consumir "my" y el token de la variable
+                        # NUEVO: Verificar asignación, si existe.
+                        if i < n and tokens[i][0] == "=" and tokens[i][1] == "operador":
+                            i += 1  # Consumir "="
+                            if variable_name.startswith("@"):
+                                # Si la variable es un array, se espera que la asignación sea un literal de lista.
+                                if i < n and tokens[i][0] != "(":
+                                    self.errores.append(
+                                        "Error semántico: Se esperaba un literal de lista tras '=' para la variable '{}'.".format(variable_name)
+                                    )
+                                else:
+                                    # Aquí opcionalmente se podría procesar el literal de lista; de momento, lo consumimos hasta encontrar ";"
+                                    while i < n and tokens[i][0] != ";":
+                                        i += 1
+                            else:
+                                # Para variables escalares, se omite el procesamiento más complejo.
+                                while i < n and tokens[i][0] != ";":
+                                    i += 1
                     else:
-                        self.errores.append("Error semántico: se esperaba un nombre de variable o lista de variables después de 'my'.")
+                        self.errores.append("Error semántico: Se esperaba un nombre de variable o lista de variables después de 'my'.")
                         i += 1
                         continue
                 else:
-                    self.errores.append("Error semántico: se esperaba un nombre de variable después de 'my'.")
+                    self.errores.append("Error semántico: Se esperaba un nombre de variable después de 'my'.")
                     i += 1
                     continue
                 print("Análisis semántico: Declaración analizada.")

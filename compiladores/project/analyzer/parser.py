@@ -20,6 +20,7 @@ class AnalizadorSintactico:
     def advance(self):
         """Avanza al siguiente token (recordando que current_token() se salta los comentarios)."""
         self.pos += 1
+
     def match(self, expected, tipo_esperado=None):
         """
         Consume el token actual si coincide con 'expected' (y opcionalmente con 'tipo_esperado');
@@ -55,12 +56,12 @@ class AnalizadorSintactico:
         """
         Reconoce una sentencia según el token actual.
         Se distinguen:
-          - Sentencias 'use'
-          - Declaraciones con 'my'
-          - Definiciones de funciones con 'sub'
-          - Sentencias 'return'
-          - O expresiones (por ejemplo, asignaciones o llamadas a función)
-          - Construcciones condicionales: if / elsif / else
+        - Sentencias 'use'
+        - Declaraciones con 'my'
+        - Definiciones de funciones con 'sub'
+        - Sentencias 'return'
+        - O expresiones (por ejemplo, asignaciones o llamadas a función)
+        - Construcciones condicionales: if / elsif / else
         """
         token = self.current_token()
         if token[1] == "palabra reservada":
@@ -72,11 +73,10 @@ class AnalizadorSintactico:
                 self.function_definition()
             elif token[0] == "return":
                 self.return_statement()
-            elif token[0] == "while":  # <-- Agregamos la rama para "while"
+            elif token[0] == "while":  # <-- Rama para "while"
                 self.while_statement()
             else:
                 self.expression_statement()  # Para otras palabras reservadas.
-
         elif token[1] == "FOR":
             self.for_statement()
         elif token[1] in ("IF", "ELSIF", "ELSE"):
@@ -98,28 +98,70 @@ class AnalizadorSintactico:
         self.match(";", "delimitador")
         print("Sentencia 'use' analizada.")
 
+
     def declaration_statement(self):
         """
         Regla: my ( variable | ( lista_de_variables ) ) [= expresión] ;
         Permite declarar una variable o una lista, con asignación opcional.
+        
+        Ajuste para arrays:
+        - Si se declara una variable cuyo identificador comienza con '@',
+            la asignación debe efectuarse mediante un literal de lista (que debe empezar con '(').
         """
         self.match("my", "palabra reservada")
         token = self.current_token()
+        var_token = None  # Para almacenar la variable si se declara directamente.
+        
         if token[0] == "(":
+            # Se declara una lista de variables entre paréntesis.
             self.match("(", "delimitador")
             self.variable_list()
             self.match(")", "delimitador")
         elif token[1] == "variable":
+            var_token = token
             self.advance()
         else:
             self.error("Se esperaba una variable o lista de variables después de 'my'.")
-        # Asignación opcional
+        
+        # Asignación opcional.
         token = self.current_token()
         if token and token[0] == "=":
             self.match("=", "operador")
-            self.expression()
+            # Si se declaró una variable de tipo array (@), la asignación debe ser un literal de lista.
+            if var_token is not None and var_token[0].startswith("@"):
+                next_token = self.current_token()
+                if next_token[0] != "(":
+                    self.error("Se esperaba una lista literal para asignar a la variable '" + var_token[0] + "'.")
+                else:
+                    self.list_literal()  # Procesa el literal de lista.
+            else:
+                self.expression()
         self.match(";", "delimitador")
         print("Declaración analizada.")
+
+
+    def list_literal(self):
+        """
+        Procesa un literal de lista para asignación a arrays.
+        Se espera la sintaxis:
+        ( expresión [ , expresión ]* )
+        Esto permite declarar, por ejemplo:
+        my @numeros = (10, 20, 30, 40, 50);
+        """
+        self.match("(", "delimitador")
+        # Permite una lista vacía, si así se desea.
+        if self.current_token()[0] != ")":
+            self.expression()
+            # Se permiten cero o más expresiones separadas por coma.
+            while self.pos < len(self.tokens) and self.current_token()[0] == ",":
+                self.match(",", "delimitador")
+                # Aseguramos que no se encuentre inmediatamente el cierre de lista
+                if self.current_token()[0] == ")":
+                    self.error("Error: se encontró una coma sin un elemento siguiente en la lista.")
+                    break
+                self.expression()
+        self.match(")", "delimitador")
+
 
     def variable_list(self):
         """Procesa una lista de variables separadas por comas."""
@@ -432,17 +474,109 @@ class AnalizadorSintactico:
         Procesa la sentencia while en Perl.
         Sintaxis:
         while ( condición ) { bloque }
-        
-        - 'while' es la palabra reservada.
-        - La condición se encuentra entre paréntesis.
-        - El bloque de sentencias se delimita por '{' y '}'.
+        Además, se verifica que dentro del bloque se actualice la variable de control,
+        para evitar loops potencialmente infinitos.
         """
         self.match("while", "palabra reservada")
         self.match("(", "delimitador")
-        self.expression()
+        
+        # Procesar y capturar la condición.
+        start_condition = self.pos
+        self.while_condition()
+        cond_tokens = self.tokens[start_condition:self.pos]
+        
+        # Extraer la variable de control (heurística: la primera variable en la condición).
+        control_var = self.extract_control_variable(cond_tokens)
+        
         self.match(")", "delimitador")
+        
+        # Procesar el bloque y capturar sus tokens.
+        start_block = self.pos
         self.block()
+        block_tokens = self.tokens[start_block:self.pos]
+        
+        # Verificar que la variable de control se actualice en el bloque.
+        if control_var and not self.check_while_update(control_var, block_tokens):
+            self.error("Error semántico (while): La variable de control '" + control_var + "' no se actualiza en el bloque, posible loop infinito.")
+        
         print("Sentencia 'while' analizada.")
+
+
+    def while_condition(self):
+        """
+        Procesa y valida la condición del while.
+        Verifica que la expresión consumida no esté vacía y,
+        si se utiliza un operador relacional (por ejemplo, '<', '>', etc.),
+        que éste tenga un operando a continuación.
+        """
+        start_pos = self.pos
+        self.expression()  # Se consume la expresión de la condición.
+        cond_tokens = self.tokens[start_pos:self.pos]
+
+        if not cond_tokens:
+            self.error("Error semántico (while): La condición está vacía.")
+            return
+
+        # Lista de operadores relacionales válidos.
+        relational_ops = {"<", ">", "<=", ">=", "==", "!="}
+        
+        # Recorre los tokens para detectar un operador relacional y validar que tenga operando.
+        for idx, token in enumerate(cond_tokens):
+            if token[0] in relational_ops and token[1] == "operador":
+                # Si el operador es el último token, falta operando.
+                if idx == len(cond_tokens) - 1:
+                    self.error("Error semántico (while): Falta un operando después del operador relacional.")
+                else:
+                    siguiente = cond_tokens[idx + 1]
+                    if siguiente[1] not in ("variable", "número", "cadena"):
+                        self.error("Error semántico (while): Operador relacional sin operando válido.")
+                break  # Se asume que solo hay una comparación.
+
+
+    def extract_control_variable(self, tokens):
+        """
+        Extrae heurísticamente la primera variable encontrada en los tokens
+        (se supone que esa será la variable de control).
+        """
+        for token in tokens:
+            if token[1] == "variable":
+                return token[0]
+        return None
+
+
+    def check_while_update(self, control_var, tokens):
+        """
+        Recorre la lista de tokens del bloque y busca patrones de actualización
+        de la variable de control.
+        Se consideran válidos:
+        - Post-incremento o post-decremento: variable seguida de '++' o '--'.
+        - Incremento cuando la tokenización separa los dos signos: 
+            (variable, "+", "+") o (variable, "-", "-").
+        - Asignación acumulativa: variable seguida de '+=' o '-=' y un valor.
+        Retorna True si se detecta la actualización, False en caso contrario.
+        """
+        for idx, token in enumerate(tokens):
+            if token[0] == control_var and token[1] == "variable":
+                # Caso 1: Incremento postfijo en 2 tokens.
+                if idx + 1 < len(tokens):
+                    next_token = tokens[idx + 1]
+                    if next_token[0] in {"++", "--"} and next_token[1] == "operador":
+                        return True
+                # Caso 2: Incremento postfijo cuando se tokeniza en 3 tokens: variable, "+" y "+" o "-" y "-".
+                if idx + 2 < len(tokens):
+                    t1 = tokens[idx + 1]
+                    t2 = tokens[idx + 2]
+                    if (t1[0] == "+" and t1[1] == "operador" and 
+                        t2[0] == "+" and t2[1] == "operador"):
+                        return True
+                    if (t1[0] == "-" and t1[1] == "operador" and 
+                        t2[0] == "-" and t2[1] == "operador"):
+                        return True
+                    # Caso 3: Asignación acumulativa: variable, "+=" o "-=" y un valor.
+                    if (t1[0] in {"+=", "-="} and t1[1] == "operador" and
+                        t2[1] in {"variable", "número", "cadena"}):
+                        return True
+        return False
 
     def show_errors(self):
         """Muestra los errores sintácticos encontrados."""
