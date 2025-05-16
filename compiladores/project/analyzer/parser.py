@@ -6,6 +6,7 @@ class AnalizadorSintactico:
         self.pos = 0                  # Posición actual en la lista de tokens.
         self.errors = []              # Lista de errores encontrados.
 
+
     def current_token(self):
         """
         Devuelve el siguiente token significativo (ignorando comentarios) o EOF.
@@ -17,9 +18,11 @@ class AnalizadorSintactico:
             return self.tokens[self.pos]
         return ("EOF", "EOF")
 
+
     def advance(self):
         """Avanza al siguiente token (recordando que current_token() se salta los comentarios)."""
         self.pos += 1
+
 
     def match(self, expected, tipo_esperado=None):
         """
@@ -36,11 +39,13 @@ class AnalizadorSintactico:
             self.advance()
             return None
 
+
     def error(self, mensaje):
         """Registra y muestra un mensaje de error sintáctico."""
         error_msg = f"SyntaxError: {mensaje}"
         self.errors.append(error_msg)
         print(error_msg)
+
 
     def parse(self):
         """Recorre la lista de tokens reconociendo sentencias."""
@@ -51,6 +56,7 @@ class AnalizadorSintactico:
             print("Análisis sintáctico completado sin errores.")
         else:
             print("Se encontraron errores en el análisis sintáctico.")
+
 
     def statement(self):
         """
@@ -103,17 +109,16 @@ class AnalizadorSintactico:
         """
         Regla: my ( variable | ( lista_de_variables ) ) [= expresión] ;
         Permite declarar una variable o una lista, con asignación opcional.
-        
-        Ajuste para arrays:
-        - Si se declara una variable cuyo identificador comienza con '@',
-            la asignación debe efectuarse mediante un literal de lista (que debe empezar con '(').
+        Se maneja la validación especial:
+        - Para arrays (@): la asignación debe ser un literal de lista.
+        - Para hashes (%): la asignación debe ser un literal de hash.
         """
         self.match("my", "palabra reservada")
         token = self.current_token()
         var_token = None  # Para almacenar la variable si se declara directamente.
         
         if token[0] == "(":
-            # Se declara una lista de variables entre paréntesis.
+            # Declaración de lista de variables
             self.match("(", "delimitador")
             self.variable_list()
             self.match(")", "delimitador")
@@ -123,21 +128,31 @@ class AnalizadorSintactico:
         else:
             self.error("Se esperaba una variable o lista de variables después de 'my'.")
         
-        # Asignación opcional.
+        # Asignación opcional: si se detecta "="
         token = self.current_token()
         if token and token[0] == "=":
             self.match("=", "operador")
-            # Si se declaró una variable de tipo array (@), la asignación debe ser un literal de lista.
-            if var_token is not None and var_token[0].startswith("@"):
-                next_token = self.current_token()
-                if next_token[0] != "(":
-                    self.error("Se esperaba una lista literal para asignar a la variable '" + var_token[0] + "'.")
+            if var_token is not None:
+                if var_token[0].startswith("@"):
+                    # Validación para arrays: se espera un literal de lista
+                    next_token = self.current_token()
+                    if next_token[0] != "(":
+                        self.error("Se esperaba una lista literal para asignar a la variable '" + var_token[0] + "'.")
+                    else:
+                        self.list_literal()
+                elif var_token[0].startswith("%"):
+                    # Caso hash: se debe validar con hash_literal()
+                    next_token = self.current_token()
+                    if next_token[0] != "(":
+                        self.error("Se esperaba un literal de hash para asignar a la variable '" + var_token[0] + "'.")
+                    else:
+                        self.hash_literal()  # Función que consume la estructura del hash
                 else:
-                    self.list_literal()  # Procesa el literal de lista.
-            else:
-                self.expression()
+                    # Para variables escalares, se procesa la expresión
+                    self.expression()
         self.match(";", "delimitador")
         print("Declaración analizada.")
+
 
 
     def list_literal(self):
@@ -180,6 +195,7 @@ class AnalizadorSintactico:
                 self.error("Se esperaba una variable después de ','.")
         # El token ")" se consume en declaration_statement.
 
+
     def function_definition(self):
         # Regla: sub <nombre_de_función> <bloque>
         self.match("sub", "palabra reservada")
@@ -191,6 +207,7 @@ class AnalizadorSintactico:
         self.block()
         print("Definición de función analizada.")
 
+
     def block(self):
         # Regla: { sentencias* }
         self.match("{", "delimitador")
@@ -199,6 +216,7 @@ class AnalizadorSintactico:
         self.match("}", "delimitador")
         print("Bloque analizado.")
 
+
     def return_statement(self):
         # Regla: return <expresión> ;
         self.match("return", "palabra reservada")
@@ -206,11 +224,13 @@ class AnalizadorSintactico:
         self.match(";", "delimitador")
         print("Sentencia 'return' analizada.")
 
+
     def expression_statement(self):
         """Regla: expresión ;"""
         self.expression()
         self.match(";", "delimitador")
         print("Sentencia de expresión analizada.")
+
 
     def expression(self):
         """
@@ -266,6 +286,7 @@ class AnalizadorSintactico:
             self.error(f"Token inesperado en la expresión: {token}")
             self.advance()
 
+
     def parse_function_call(self, nombre_funcion):
         """
         Procesa una llamada a función, con o sin paréntesis.
@@ -280,12 +301,14 @@ class AnalizadorSintactico:
             if self.pos < len(self.tokens) and self.current_token()[0] not in (";", ",", ")"):
                 self.expression()
 
+
     def arguments(self):
         """Procesa la lista de argumentos: expresión ( , expresión )*."""
         self.expression()
         while self.pos < len(self.tokens) and self.current_token()[0] == ",":
             self.match(",", "delimitador")
             self.expression()
+
 
     def conditional_statement(self):
         """
@@ -317,6 +340,7 @@ class AnalizadorSintactico:
             self.block()
             print("Sentencia 'else' analizada.")
             
+
     def switch_statement(self):
         """
         Procesa la estructura switch:
@@ -344,6 +368,7 @@ class AnalizadorSintactico:
         self.match("}", "delimitador")
         print("Sentencia 'switch' analizada.")
 
+
     def case_clause(self):
         """
         Procesa una cláusula 'case':
@@ -360,6 +385,7 @@ class AnalizadorSintactico:
         self.match("}", "delimitador")
         print("Sentencia 'case' analizada.")
 
+
     def default_clause(self):
         """
         Procesa la cláusula 'default':
@@ -374,6 +400,7 @@ class AnalizadorSintactico:
         self.match("}", "delimitador")
         print("Sentencia 'default' analizada.")
         
+
     def for_statement(self):
         """
         Procesa la estructura for (estilo Perl). Se admiten dos formas:
@@ -444,11 +471,13 @@ class AnalizadorSintactico:
             # Si no es una declaración, se procesa como una expresión normal.
             self.expression()
 
+
     def for_condition(self):
         """
         Procesa la condición del for clásico, que debe evaluar a un valor booleano.
         """
         self.expression()
+
 
     def for_increment(self):
         """
@@ -456,6 +485,7 @@ class AnalizadorSintactico:
         Se espera una expresión que modifique la variable iteradora (por ejemplo: $i++ o $i += 1).
         """
         self.expression()
+
 
     def for_list(self):
         """
@@ -468,6 +498,7 @@ class AnalizadorSintactico:
         while self.pos < len(self.tokens) and self.current_token()[0] == ",":
             self.match(",", "delimitador")
             self.expression()
+
 
     def while_statement(self):
         """
@@ -577,6 +608,7 @@ class AnalizadorSintactico:
                         t2[1] in {"variable", "número", "cadena"}):
                         return True
         return False
+
 
     def show_errors(self):
         """Muestra los errores sintácticos encontrados."""

@@ -9,9 +9,11 @@ class AnalizadorSemantico:
         # Lista de errores semánticos encontrados.
         self.errores = []
 
+
     # --- Manejo de Ámbitos ---
     def push_scope(self):
         self.scope_stack.append({})
+
 
     def pop_scope(self):
         # Evitamos desapilar el ámbito global.
@@ -19,6 +21,7 @@ class AnalizadorSemantico:
             self.scope_stack.pop()
         else:
             self.errores.append("Error interno: no se puede desapilar el ámbito global.")
+
 
     # --- Gestión de Variables ---
     def agregar_variable(self, nombre, tipo):
@@ -29,6 +32,7 @@ class AnalizadorSemantico:
         else:
             current_scope[nombre] = tipo
 
+
     def buscar_variable(self, nombre):
         """Busca la variable en la pila de ámbitos (de lo local a lo global)."""
         for scope in reversed(self.scope_stack):
@@ -36,10 +40,12 @@ class AnalizadorSemantico:
                 return True
         return False
 
+
     def validar_variable(self, nombre):
         """Verifica que la variable esté declarada en algún ámbito."""
         if not self.buscar_variable(nombre):
             self.errores.append(f"Error: la variable '{nombre}' no está declarada.")
+
 
     # --- Gestión de Funciones ---
     def agregar_funcion(self, nombre, parametros):
@@ -49,6 +55,7 @@ class AnalizadorSemantico:
         else:
             self.funciones[nombre] = parametros
             # Nota: Los parámetros se manejan en el ámbito local de la función.
+
 
     def validar_llamada_funcion(self, nombre, argumentos):
         """Valida que la función esté declarada y que el número de argumentos concuerde con los parámetros."""
@@ -60,6 +67,7 @@ class AnalizadorSemantico:
             self.errores.append(
                 f"Error: la función '{nombre}' esperaba {len(parametros)} argumentos, pero recibió {len(argumentos)}."
             )
+
 
     # --- Análisis Semántico ---
     def analizar(self, tokens):
@@ -252,6 +260,7 @@ class AnalizadorSemantico:
         else:
             print("Análisis semántico completado con errores.")
 
+
     def _extraer_parametros(self, tokens, i):
         """
         Extrae parámetros en el patrón: my ( $param1, $param2, ... ) = @_; 
@@ -283,6 +292,7 @@ class AnalizadorSemantico:
             i += 1
         return (parametros, i)
 
+
     def _skip_block(self, tokens, i):
         """
         Avanza el índice 'i' hasta después del bloque delimitado por '{' y '}'.
@@ -300,6 +310,7 @@ class AnalizadorSemantico:
             i += 1
         self.errores.append("Error semántico: bloque no cerrado correctamente.")
         return i
+
 
     def _analizar_condicional(self, tokens, i):
         """
@@ -364,6 +375,7 @@ class AnalizadorSemantico:
                 self.errores.append("Error semántico: se esperaba bloque '{' tras el else.")
             print("Análisis semántico: Sentencia 'else' analizada.")
         return i
+
 
     def _analizar_switch(self, tokens, i):
         """
@@ -454,6 +466,7 @@ class AnalizadorSemantico:
         print("Análisis semántico: Sentencia 'case' analizada.")
         return i
     
+
     def _analizar_default_clause(self, tokens, i):
         """
         Procesa la cláusula default:
@@ -477,6 +490,7 @@ class AnalizadorSemantico:
         print("Análisis semántico: Sentencia 'default' analizada.")
         return i
     
+
     def _analizar_for(self, tokens, i):
         """
         Analiza semánticamente el ciclo for (estilo Perl). Se admiten dos formas:
@@ -596,6 +610,7 @@ class AnalizadorSemantico:
         else:
             self.errores.append("Error semántico: Estructura for inválida.")
             return i
+
 
     def _analizar_while(self, tokens, i):
         """

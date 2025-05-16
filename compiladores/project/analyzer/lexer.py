@@ -25,6 +25,7 @@ class AnalizadorLexico:
             return True
         return False
 
+
     def siguiente_no_espacio(self, codigo, index):
         """
         Retorna el siguiente carácter en 'codigo' a partir de 'index' que no sea un espacio.
@@ -38,13 +39,17 @@ class AnalizadorLexico:
             return codigo[pos]
         return ''
 
+
     def analizar(self, codigo):
         """Analiza un fragmento de código Perl y reconoce los tokens sin usar expresiones regulares."""
+        i = 0
         palabra = ""
         en_cadena = False
         en_comentario = False
 
-        for i, caracter in enumerate(codigo):
+        while i < len(codigo):
+            caracter = codigo[i]
+
             if en_comentario:
                 if caracter == "\n":  # Fin del comentario
                     self.tokens.append((palabra, "comentario"))
@@ -52,6 +57,7 @@ class AnalizadorLexico:
                     en_comentario = False
                 else:
                     palabra += caracter
+                i += 1
                 continue
 
             if en_cadena:
@@ -60,43 +66,61 @@ class AnalizadorLexico:
                     self.tokens.append((palabra, "cadena"))
                     palabra = ""
                     en_cadena = False
+                i += 1
                 continue
 
             if caracter in "\"'":  # Inicia cadena
                 en_cadena = caracter
                 palabra += caracter
+                i += 1
                 continue
 
             if caracter == "#":  # Inicia comentario
                 en_comentario = True
                 palabra += caracter
+                i += 1
                 continue
 
-            if caracter == "{":  # Puede ser inicio de bloque o clave de hash
+            if caracter == "{":  # Inicio de bloque o clave de hash
                 self.tokens.append((caracter, "delimitador"))
-                if i > 0 and codigo[i - 1] == "%":  # Si el anterior era '%', estamos en un hash
+                if i > 0 and codigo[i - 1] == "%":
                     self.dentro_de_hash = True
+                i += 1
                 continue
 
-            if caracter == "}":  # Fin de una clave dentro de un hash
+            if caracter == "}":  # Fin de clave dentro de un hash
                 self.tokens.append((caracter, "delimitador"))
                 self.dentro_de_hash = False
+                i += 1
                 continue
 
+            # Procesa espacios y delimitadores/operadores
             if caracter.isspace() or caracter in "{}()[],:;=+-*/<>!":
                 if palabra:
                     self.procesar_palabra(palabra, codigo, i)
                     palabra = ""
-                # Se registra el delimitador u operador actual (si no es espacio)
+                
+                # Verificar prioritariamente si se forma el operador compuesto "=>"
+                if caracter == "=" and i + 1 < len(codigo) and codigo[i + 1] == ">":
+                    self.tokens.append(("=>", "operador"))
+                    i += 2  # Se consumen los dos caracteres "=" y ">"
+                    continue
+
+                # Si no se forma "=>", se procesa el carácter individual
                 if caracter in "{}()[],:;=+-*/<>!":
                     tipo = "operador" if caracter in "=+-*/<>" else "delimitador"
                     self.tokens.append((caracter, tipo))
+                i += 1
                 continue
 
+            # Acumula caracteres en 'palabra'
             palabra += caracter
+            i += 1
 
         if palabra:
             self.procesar_palabra(palabra, codigo, len(codigo))
+
+
 
     def procesar_palabra(self, palabra, codigo, index):
         """Procesa una palabra y la clasifica como variable, número, palabra reservada, etc."""
@@ -163,6 +187,7 @@ class AnalizadorLexico:
                 self.tokens.append((palabra, "variable"))
             else:
                 self.warnings.append(f'WARNING: "{palabra}" no es un token válido.')
+
 
     def mostrar_tokens(self):
         """Muestra los tokens reconocidos y las advertencias."""
