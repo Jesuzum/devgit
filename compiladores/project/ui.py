@@ -83,7 +83,7 @@ def ui_init():
     menu_ejecutar = crear_menu(principal)
     menu_ejecutar.add_command(label="Analisis", image=icono_lexer, compound="left", command=lambda: ejecutar_analisis(editor_texto, salida_texto))
     menu_ejecutar.add_command(label="Código Prueba Sin Errores", image=icono_parser, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=True))
-    menu_ejecutar.add_command(label="Código Prueba Con Errores", image=icono_semantic, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=False))
+    #menu_ejecutar.add_command(label="Código Prueba Con Errores", image=icono_semantic, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=False))
     menu_ejecutar.add_separator()
     menu_ejecutar.add_command(label="Limpiar salida", image=icono_limpiar, compound="left", command=lambda: limpiar_salida(salida_texto))
 
@@ -224,7 +224,7 @@ def ui_init():
     principal.bind("<Control-d>", lambda event: abrir_documentacion())
     principal.bind("<Control-h>", lambda event: mostrar_atajos())
     principal.bind("<Control-p>", lambda event: insertar_codigo_prueba(editor_texto, sin_errores=True))
-    principal.bind("<Control-t>", lambda event: insertar_codigo_prueba(editor_texto, sin_errores=False))
+    #principal.bind("<Control-t>", lambda event: insertar_codigo_prueba(editor_texto, sin_errores=False))
     principal.bind("<Control-r>", lambda event: ejecutar_analisis(editor_texto, salida_texto))
     #----------------------------------------------------------------------------------------------------------------------
     principal.mainloop()

@@ -127,6 +127,7 @@ class AnalizadorSintactico:
             self.advance()
         else:
             self.error("Se esperaba una variable o lista de variables después de 'my'.")
+            return
         
         # Asignación opcional: si se detecta "="
         token = self.current_token()
@@ -135,24 +136,73 @@ class AnalizadorSintactico:
             if var_token is not None:
                 if var_token[0].startswith("@"):
                     # Validación para arrays: se espera un literal de lista
-                    next_token = self.current_token()
-                    if next_token[0] != "(":
+                    if self.current_token()[0] != "(":
                         self.error("Se esperaba una lista literal para asignar a la variable '" + var_token[0] + "'.")
                     else:
                         self.list_literal()
                 elif var_token[0].startswith("%"):
                     # Caso hash: se debe validar con hash_literal()
-                    next_token = self.current_token()
-                    if next_token[0] != "(":
+                    if self.current_token()[0] != "(":
                         self.error("Se esperaba un literal de hash para asignar a la variable '" + var_token[0] + "'.")
                     else:
-                        self.hash_literal()  # Función que consume la estructura del hash
+                        self.hash_literal()  # Procesa el literal de hash y avanza los tokens.
                 else:
                     # Para variables escalares, se procesa la expresión
                     self.expression()
-        self.match(";", "delimitador")
+
+            # IMPORTANTE: Ahora `match(";")` solo se ejecuta después de procesar hash_literal()
+            self.match(";", "delimitador")
+        
         print("Declaración analizada.")
 
+    def hash_literal(self):
+        """
+        Procesa un literal de hash con la sintaxis:
+            ( clave => valor, clave => valor, ... )
+        Se espera:
+        - Inicio con '('
+        - Cada par se compone de: clave (cadena o variable), el operador "=>", valor (número, cadena o variable)
+        - Los pares se separan opcionalmente por comas
+        - Se cierra con ')'
+        """
+        self.match("(", "delimitador")
+        
+        # Verificar si el hash está vacío
+        if self.current_token()[0] == ")":
+            self.match(")", "delimitador")
+            return
+
+        # Procesar al menos un par clave => valor
+        while True:
+            # Validar la clave: se espera cadena o variable
+            if self.current_token()[1] not in ("cadena", "variable"):
+                self.error(f"Se esperaba una clave válida en el hash, pero se encontró {self.current_token()}")
+                break
+            self.advance()  # Consumimos la clave
+            
+            # Se espera el operador compuesto '=>'
+            if self.current_token()[0] == "=>" and self.current_token()[1] == "operador":
+                self.match("=>", "operador")
+            else:
+                self.error(f"Se esperaba '=>' después de la clave, pero se encontró {self.current_token()}")
+                break
+
+            # Validar el valor: se espera número, cadena o variable
+            if self.current_token()[1] in ("número", "cadena", "variable"):
+                self.advance()
+            else:
+                self.error(f"Se esperaba un valor válido tras '=>' en el hash, pero se encontró {self.current_token()}")
+                break
+            
+            # Si hay coma, consumirla y continuar con el siguiente par
+            if self.current_token()[0] == "," and self.current_token()[1] == "delimitador":
+                self.match(",", "delimitador")
+                continue  # Seguimos procesando pares clave => valor.
+            else:
+                break  # No hay más pares, salimos del bucle.
+
+        # Se espera el cierre con ')'
+        self.match(")", "delimitador")
 
 
     def list_literal(self):
