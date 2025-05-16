@@ -320,8 +320,7 @@ def mostrar_atajos():
     - Ctrl + L → Limpiar salida
     - Ctrl + D → Abrir documentación de Perl
     - Ctrl + H → Mostrar atajos de teclado
-    - Ctrl + P → Ingresar codigo de prueba sin errores
-    - Ctrl + T → Ingresar codigo de prueba con errores
+    - Ctrl + P → Ingresar codigo de prueba
     - Ctrl + R → Ejecutar análisis
     """
     messagebox.showinfo("Atajos de Teclado", atajos)

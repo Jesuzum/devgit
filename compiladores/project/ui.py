@@ -82,7 +82,7 @@ def ui_init():
     # Menú Ejecutar 
     menu_ejecutar = crear_menu(principal)
     menu_ejecutar.add_command(label="Analisis", image=icono_lexer, compound="left", command=lambda: ejecutar_analisis(editor_texto, salida_texto))
-    menu_ejecutar.add_command(label="Código Prueba Sin Errores", image=icono_parser, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=True))
+    menu_ejecutar.add_command(label="Código Prueba", image=icono_parser, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=True))
     #menu_ejecutar.add_command(label="Código Prueba Con Errores", image=icono_semantic, compound="left",command=lambda: insertar_codigo_prueba(editor_texto, sin_errores=False))
     menu_ejecutar.add_separator()
     menu_ejecutar.add_command(label="Limpiar salida", image=icono_limpiar, compound="left", command=lambda: limpiar_salida(salida_texto))
